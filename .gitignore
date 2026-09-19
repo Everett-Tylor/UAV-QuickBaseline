@@ -1,0 +1,13 @@
+﻿/data/
+/runs/
+/predictions/
+/predictio/
+/submission.zip
+*.pth
+*.pt
+*.zip
+__pycache__/
+*.pyc
+.venv/
+venv/
+.vscode/
