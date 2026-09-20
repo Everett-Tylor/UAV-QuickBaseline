@@ -1,8 +1,7 @@
-﻿/data/
+/data/
 /runs/
-/predictions/
+/predictions*/
 /predictio/
-/submission.zip
 *.pth
 *.pt
 *.zip
@@ -11,3 +10,8 @@ __pycache__/
 .venv/
 venv/
 .vscode/
+test_results.txt
+
+# Explicitly published experiment deliverables
+!/artifacts/*.pth
+!/artifacts/*.zip
