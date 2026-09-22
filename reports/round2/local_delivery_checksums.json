@@ -1,0 +1,14 @@
+{
+  "预测结果_1300张.zip": {
+    "bytes": 13223506,
+    "sha256": "153dfeda501f9e1081696e7bed67f7abf37b74af9f3935be0b58cfc227d090df"
+  },
+  "Docker复现材料.zip": {
+    "bytes": 101588572,
+    "sha256": "83c7f61f1e4f887cb8a1804d83fb736f46e8044c11e51a9a823cdce82e0d4880"
+  },
+  "技术方案.pdf": {
+    "bytes": 125035,
+    "sha256": "af71d1dd8809058f51ce64a024216b3fc9c9f63ebd1ca078df27fe2dedc3285d"
+  }
+}

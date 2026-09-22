@@ -12,6 +12,6 @@ venv/
 .vscode/
 test_results.txt
 
-# Explicitly published experiment deliverables
-!/artifacts/*.pth
-!/artifacts/*.zip
+# Published experiment artifacts
+!/artifacts/**/*.pth
+!/artifacts/**/*.zip
