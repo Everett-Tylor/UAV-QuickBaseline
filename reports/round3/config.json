@@ -1,0 +1,17 @@
+{
+  "images": "data/train_images",
+  "masks": "data/train_masks",
+  "split": "reports/round2/split.json",
+  "class_balance": "reports/round2/class_balance.json",
+  "source": "round2_model",
+  "init": "round2_model/best.pth",
+  "out": "runs/round3_robust640",
+  "epochs": 6,
+  "size": 640,
+  "batch": 4,
+  "accum": 2,
+  "workers": 4,
+  "seed": 20260923,
+  "lr": 1.5e-05,
+  "smoke": false
+}
