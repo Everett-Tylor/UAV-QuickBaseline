@@ -1,0 +1,30 @@
+{
+  "selected_report": "outputs/round4/mild_tta.json",
+  "checkpoint": "outputs/runs/round4_mild640/best.pth",
+  "checkpoint_sha256": "dbc968a8d3528d2bc02af843c64468a361d751ea717b659458429215b38984fa",
+  "source": "outputs/round2_model",
+  "sizes": [
+    512,
+    768
+  ],
+  "hflip": true,
+  "ensemble_used": false,
+  "training_images": 6296,
+  "validation_images": 700,
+  "official_previous_user_reported": 67,
+  "official_current": null,
+  "selection_reason": "Highest overall fixed-holdout mIoU among tested candidates; dark subset improved; low-contrast subset decreased 0.033 percentage points",
+  "validation_miou": 0.7532327659163189,
+  "validation_groups": {
+    "all": 0.7532327659163189,
+    "brightness": 0.685648541615173,
+    "contrast": 0.7155432714180124
+  },
+  "prediction_zip": "outputs/submission_round4_20260924.zip",
+  "prediction_sha256": "9d2d5eb8b57195319097f8950c373b6eccea8f47d3d2faeafc4bfb70aa3042f1",
+  "prediction_bytes": 11521996,
+  "prediction_count": 1300,
+  "format_checks": "Names, native dimensions, L mode, IDs 0-8, and ZIP CRC passed",
+  "loss_checks": "Finite gradients, ignored-pixel zero gradients, all-ignore target, perfect/wrong predictions passed",
+  "external_download": "B2 not trained; download blocked by environment network access"
+}
