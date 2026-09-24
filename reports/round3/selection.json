@@ -11,7 +11,7 @@
   "bn_calibration_used": false,
   "selection_reason": "Improves overall, dark and low-contrast validation subsets over the previous submitted pipeline",
   "official_miou_percent_previous_user_reported": 65.0,
-  "official_miou_percent_current": null,
+  "official_miou_percent_current": 67.0,
   "validation_miou": 0.7507878225607507,
   "validation_dark_miou": 0.6827424991005067,
   "validation_low_contrast_miou": 0.7158718970533225,
@@ -19,5 +19,6 @@
   "prediction_sha256": "c4e7919211f1a2573110b1506c399a922df3b5b136c13d681bff9f267a1ded08",
   "prediction_bytes": 11922538,
   "prediction_count": 1300,
-  "format_checks": "filename,size,L-mode,IDs 0-8,ZIP CRC passed"
+  "format_checks": "filename,size,L-mode,IDs 0-8,ZIP CRC passed",
+  "official_score_source": "user reported 2026-09-24"
 }
