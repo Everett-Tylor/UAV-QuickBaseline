@@ -12,7 +12,7 @@
   "training_images": 6296,
   "validation_images": 700,
   "official_previous_user_reported": 67,
-  "official_current": null,
+  "official_current": 67.6,
   "selection_reason": "Highest overall fixed-holdout mIoU among tested candidates; dark subset improved; low-contrast subset decreased 0.033 percentage points",
   "validation_miou": 0.7532327659163189,
   "validation_groups": {
@@ -26,5 +26,6 @@
   "prediction_count": 1300,
   "format_checks": "Names, native dimensions, L mode, IDs 0-8, and ZIP CRC passed",
   "loss_checks": "Finite gradients, ignored-pixel zero gradients, all-ignore target, perfect/wrong predictions passed",
-  "external_download": "B2 not trained; download blocked by environment network access"
+  "external_download": "B2 not trained; download blocked by environment network access",
+  "official_score_source": "User reported 2026-09-25"
 }

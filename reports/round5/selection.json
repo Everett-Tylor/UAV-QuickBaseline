@@ -1,0 +1,30 @@
+{
+  "selected_report": "outputs/round5/new_three_scale.json",
+  "checkpoint": "outputs/runs/round5_mild768/best.pth",
+  "checkpoint_sha256": "8c5bf6bc394ab26254c1cbc39f4466bf782a475770e32a369b515b493bb6217f",
+  "source": "outputs/round2_model",
+  "sizes": [
+    512,
+    768,
+    896
+  ],
+  "hflip": true,
+  "ensemble_used": false,
+  "training_images": 6296,
+  "validation_images": 700,
+  "official_previous_user_reported": 67.6,
+  "official_current": null,
+  "validation_miou": 0.7558636365949272,
+  "validation_groups": {
+    "all": 0.7558636365949272,
+    "brightness": 0.6887244727308279,
+    "contrast": 0.7192028946269096
+  },
+  "selection_reason": "Highest overall fixed-validation mIoU among four tested candidates; see grouped results for tradeoffs",
+  "prediction_zip": "outputs/submission_round5_20260925.zip",
+  "prediction_sha256": "498ce034115ef2869ab8f18a1eb2e46a5a26c0988dab9f5647ee4a03d9a009ac",
+  "prediction_bytes": 11609692,
+  "prediction_count": 1300,
+  "format_checks": "Names, native dimensions, L mode, IDs 0-8 and ZIP CRC passed",
+  "recipe_check": "round5_train.py defaults match actual training config"
+}
