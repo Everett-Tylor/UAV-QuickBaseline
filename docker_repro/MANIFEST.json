@@ -1,0 +1,21 @@
+{
+  "runtime_sha256": {
+    "metadata/class_balance.json": "2af08e6c32451f62378b2c36c0a247802aec3ef7f8b23d6af7fdb9f1675762c2",
+    "metadata/split.json": "7fae68f87aa25c1f8f5c6a54d13902d7803be789122af16d84324412177d9049",
+    "reproduce.py": "e9cfff719d9bfffc898297ef671e73a772237b6c0c03a9ab91e5d4fcaff8fb83",
+    "src/improvedseg.py": "05294f48d9d2024b08f8c3878c54d8ada88e1733eae19aa19546adbea7324795",
+    "src/quickseg.py": "4f18328e2e319e6517fa9af668281bcb45e2efe349299b484a4c0ef128ae87d4",
+    "src/round2_predict.py": "9a1ce55ca5df7b0826a0394678b90b9c39ce1c5b92d807666b5609f063c18eb2",
+    "src/round2seg.py": "bf33fcd4d0dc92f5820aa5752a998d4164f1788c90753fe6c9e2105491c5fe97",
+    "src/test_improvedseg.py": "eee266d6a4865eda442cef08da21b99058e966edd0b5e777ce972fcc006b3d4e",
+    "weights/final/best.pth": "e9d7743d6d9c6ceef15dca636b251aed145c907fe8c570ab1ed12afd5fac69a5",
+    "weights/final/config.json": "2ac61d6e55fa5661bd7bd1a4443fd1e9252e24d94a32d1743bdeacad5c319774",
+    "weights/final/inference.json": "c486d60d8f16bbbee6e76fee75a15e4bf3c567d1e1033fb447cbdc4b3880967a",
+    "weights/final/pretrained_provenance.json": "fc06602667aec804ccf9846f0054f51067d23148da6ff3da8a113d5840909036",
+    "weights/initial/config.json": "2ac61d6e55fa5661bd7bd1a4443fd1e9252e24d94a32d1743bdeacad5c319774",
+    "weights/initial/model.safetensors": "0cf7a99b74c476fbded9f7a39abe542ac7fa29a985a230c485e5fd6918fa39bc"
+  },
+  "docker_built": false,
+  "docker_gpu_tested": false,
+  "local_training_verified": true
+}
