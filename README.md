@@ -1,5 +1,3 @@
-# UAV 复赛模型优化
+# UAV 复赛单模型分割
 
-最新实验：[第六轮 DINOv3 分割](README_dinov3.md)。第五轮用户回报官方 mIoU 为 67.8 分，本轮官方成绩尚未取得，70 分为目标而非已达到的结果。
-
-历史：[第五轮](README_round5.md)、[第四轮](README_round4.md)。
+当前合规提交方案：[DINOv3 单模型](README_single_model.md)。先前的[双模型融合实验](README_dinov3.md)已停用。
