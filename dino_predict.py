@@ -2,7 +2,7 @@
 import argparse,json,zipfile
 from pathlib import Path
 import numpy as np
-from PIL import Image
+from PIL import Image,ImageEnhance
 import torch
 from torch.nn import functional as F
 from torch.utils.data import Dataset,DataLoader
@@ -12,12 +12,18 @@ from improvedseg import tensor_image,metrics_from_hist,paired_paths,split_pairs
 from quickseg import images
 
 class Inputs(Dataset):
-    def __init__(self,pairs,sizes):self.pairs,self.sizes=pairs,sizes
+    def __init__(self,pairs,sizes,brightness_floor=0.,max_brightening=1.25):
+        self.pairs,self.sizes=pairs,sizes
+        self.brightness_floor,self.max_brightening=brightness_floor,max_brightening
     def __len__(self):return len(self.pairs)
     def __getitem__(self,i):
         path,mask=self.pairs[i]
         with Image.open(path) as im:
             rgb=im.convert('RGB');shape=(rgb.height,rgb.width)
+            if self.brightness_floor>0:
+                brightness=float(np.asarray(rgb.resize((64,64),Image.Resampling.BILINEAR),dtype=np.float32).mean()/255)
+                if brightness<self.brightness_floor:
+                    rgb=ImageEnhance.Brightness(rgb).enhance(min(self.max_brightening,self.brightness_floor/max(brightness,1e-3)))
             xs=[tensor_image(rgb.resize((s,s),Image.Resampling.BILINEAR)) for s in self.sizes]
         if mask is not None:
             with Image.open(mask) as im:y=torch.from_numpy(np.asarray(im,dtype=np.int64).copy())
@@ -39,7 +45,7 @@ def run(a):
         _,pairs,_=split_pairs(paired_paths(a),a.split,.1,2026)
     else:pairs=[(p,None) for p in images(a.images)]
     if len({p.name for p,_ in pairs})!=len(pairs):raise ValueError('Duplicate image names')
-    loader=DataLoader(Inputs(pairs,a.sizes),batch_size=1,num_workers=a.workers,pin_memory=True)
+    loader=DataLoader(Inputs(pairs,a.sizes,a.brightness_floor,a.max_brightening),batch_size=1,num_workers=a.workers,pin_memory=True)
     groups={};thresholds={}
     if a.profiles:
         rows=json.loads(Path(a.profiles).read_text())
@@ -67,7 +73,7 @@ def run(a):
         else:Image.fromarray(pred[0].cpu().numpy().astype(np.uint8)).save(out/(Path(name).stem+'.png'))
         if i%100==0:print(f'images={i}/{len(pairs)}',flush=True)
     if a.masks:
-        report={'checkpoint':a.checkpoint,'ensemble_checkpoint':a.ensemble_checkpoint,'ensemble_weights':'equal','ensemble_source':a.ensemble_source,'ensemble_architecture':a.ensemble_architecture,'sizes':a.sizes,'hflip':a.hflip,'group_thresholds_from_train':thresholds,
+        report={'checkpoint':a.checkpoint,'ensemble_checkpoint':a.ensemble_checkpoint,'ensemble_weights':'equal','ensemble_source':a.ensemble_source,'ensemble_architecture':a.ensemble_architecture,'sizes':a.sizes,'hflip':a.hflip,'brightness_floor':a.brightness_floor,'max_brightening':a.max_brightening,'group_thresholds_from_train':thresholds,
             'groups':{k:{'images':count[k],**metrics_from_hist(v.cpu().reshape(9,9))} for k,v in hist.items() if count[k]}}
         out.parent.mkdir(parents=True,exist_ok=True);out.write_text(json.dumps(report,indent=2),encoding='utf-8')
         print(json.dumps({k:round(v['mIoU_present_nonignored']*100,4) for k,v in report['groups'].items()}),flush=True)
@@ -88,6 +94,7 @@ if __name__=='__main__':
     p=argparse.ArgumentParser()
     for name in ('checkpoint','source','images','out'):p.add_argument('--'+name,required=True)
     p.add_argument('--sizes',type=int,nargs='+',default=[640]);p.add_argument('--hflip',action='store_true')
+    p.add_argument('--brightness-floor',type=float,default=0.);p.add_argument('--max-brightening',type=float,default=1.25)
     p.add_argument('--masks');p.add_argument('--split');p.add_argument('--profiles')
     p.add_argument('--ensemble-checkpoint')
     p.add_argument('--ensemble-source')

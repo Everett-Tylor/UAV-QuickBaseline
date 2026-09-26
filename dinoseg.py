@@ -7,6 +7,23 @@ from transformers import DINOv3ViTModel,DINOv3ViTConfig
 def conv(cin,cout):
     return nn.Sequential(nn.Conv2d(cin,cout,3,padding=1,bias=False),nn.GroupNorm(8,cout),nn.GELU())
 
+class MixStyle(nn.Module):
+    def __init__(self,p=.5,alpha=.1):
+        super().__init__()
+        self.p=p
+        self.beta=torch.distributions.Beta(alpha,alpha)
+
+    def forward(self,x):
+        if not self.training or x.shape[0]<2 or torch.rand(())>=self.p:return x
+        value=x.float()
+        mean=value.mean((2,3),keepdim=True).detach()
+        std=(value.var((2,3),keepdim=True,unbiased=False)+1e-6).sqrt().detach()
+        order=torch.randperm(x.shape[0],device=x.device)
+        weight=self.beta.sample((x.shape[0],1,1,1)).to(device=x.device)
+        new_mean=weight*mean+(1-weight)*mean[order]
+        new_std=weight*std+(1-weight)*std[order]
+        return (((value-mean)/std)*new_std+new_mean).to(dtype=x.dtype)
+
 class DinoSegmenter(nn.Module):
     def __init__(self,source,config_only=False):
         super().__init__()
@@ -24,6 +41,8 @@ class DinoSegmenter(nn.Module):
         self.register_buffer('mean',torch.tensor([.485,.456,.406])[None,:,None,None])
         self.register_buffer('std',torch.tensor([.229,.224,.225])[None,:,None,None])
         self.frozen_backbone=False
+        self.mixstyle=MixStyle()
+        self.mixstyle_enabled=False
 
     def freeze_backbone(self,freeze):
         self.frozen_backbone=freeze
@@ -49,6 +68,7 @@ class DinoSegmenter(nn.Module):
             tokens=state[:,prefix:]
             if tokens.shape[1]!=gh*gw:raise RuntimeError('Patch/token shape mismatch')
             feature=proj(tokens.transpose(1,2).reshape(x.shape[0],-1,gh,gw))
+            if self.mixstyle_enabled and index in (3,6):feature=self.mixstyle(feature)
             features.append(F.interpolate(feature,size=(int(gh*scale),int(gw*scale)),mode='bilinear',align_corners=False))
         fused=None
         for i in [3,2,1,0]:

@@ -1,0 +1,41 @@
+{
+  "architecture": "DINOv3 ViT-B/16 with MixStyle during training",
+  "model_count_at_inference": 1,
+  "checkpoint": "runs/round8_mixstyle640/best.pth",
+  "checkpoint_sha256": "46182c05c2526bf1c0f360ebd6f3716e2c0491ef17b5f85ed5d1bf9eb0ce444c",
+  "best_epoch": 3,
+  "pretrained_weights": "user-provided publicly available DINOv3 ViT-B/16",
+  "train_images": 6296,
+  "validation_images": 700,
+  "test_images": 1300,
+  "test_used_for_training": false,
+  "model_ensemble": false,
+  "sizes": [
+    512,
+    640,
+    768,
+    896
+  ],
+  "hflip": true,
+  "brightness_floor": 0.35,
+  "max_brightening": 1.25,
+  "local_validation": {
+    "all": 0.7838392685042884,
+    "brightness": 0.7182860788556863,
+    "contrast": 0.745958701288669
+  },
+  "previous_single_model_official_user_reported": 67.7,
+  "previous_two_model_official_user_reported_but_disallowed": 69.88,
+  "official_current": null,
+  "prediction_zip": "submission_round8_mixstyle_single.zip",
+  "prediction_zip_sha256": "74bd6b4d8191d06975a209268a8bf9b16032170fe4f6628b49b8c98fef7cc8c9",
+  "prediction_zip_bytes": 11798024,
+  "prediction_validation": {
+    "count": 1300,
+    "root_png": true,
+    "crc_ok": true,
+    "mode": "L",
+    "class_ids": "0-8",
+    "image_names_and_sizes_match_test": true
+  }
+}

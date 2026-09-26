@@ -34,6 +34,7 @@ def train(a):
     val=DataLoader(ValidationDataset(validation,a.size),batch_size=2,num_workers=a.workers,pin_memory=True,persistent_workers=a.workers>0)
     model=DinoSegmenter(a.source,config_only=bool(a.init)).cuda()
     if a.init:model.load_state_dict(torch.load(a.init,map_location='cpu',weights_only=False)['model'])
+    model.mixstyle_enabled=a.mixstyle
     model.backbone.gradient_checkpointing_enable(gradient_checkpointing_kwargs={'use_reentrant':False})
     ema=copy.deepcopy(model).eval().requires_grad_(False)
     backbone=list(model.backbone.parameters());ids={id(p) for p in backbone}
@@ -77,4 +78,5 @@ if __name__=='__main__':
     p.add_argument('--size',type=int,default=512);p.add_argument('--batch',type=int,default=4);p.add_argument('--accum',type=int,default=2)
     p.add_argument('--workers',type=int,default=4);p.add_argument('--seed',type=int,default=20260927)
     p.add_argument('--lr',type=float,default=1e-5);p.add_argument('--head-lr',type=float,default=3e-4)
+    p.add_argument('--mixstyle',action='store_true')
     p.add_argument('--smoke',action='store_true');train(p.parse_args())
