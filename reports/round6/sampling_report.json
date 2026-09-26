@@ -1,0 +1,29 @@
+{
+  "method": "bounded hard-group weighted sampling with replacement",
+  "thresholds_from_train": {
+    "brightness": 0.30897921323776245,
+    "contrast": 0.09891152940690517
+  },
+  "group_order": [
+    "barren_1pct",
+    "vehicle_0.1pct",
+    "dark",
+    "low_contrast"
+  ],
+  "uniform_group_frequency": [
+    0.12404701397712833,
+    0.2517471410419314,
+    0.25,
+    0.25
+  ],
+  "weighted_group_frequency": [
+    0.19028378014358763,
+    0.2617148612721438,
+    0.3221777168757206,
+    0.3115784172493306
+  ],
+  "min_weight": 1.0,
+  "max_weight": 2.45,
+  "samples_per_epoch": 6296,
+  "metadata_uses_only_fixed_training_split": true
+}

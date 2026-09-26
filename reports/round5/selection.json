@@ -13,7 +13,7 @@
   "training_images": 6296,
   "validation_images": 700,
   "official_previous_user_reported": 67.6,
-  "official_current": null,
+  "official_current": 67.8,
   "validation_miou": 0.7558636365949272,
   "validation_groups": {
     "all": 0.7558636365949272,
@@ -26,5 +26,6 @@
   "prediction_bytes": 11609692,
   "prediction_count": 1300,
   "format_checks": "Names, native dimensions, L mode, IDs 0-8 and ZIP CRC passed",
-  "recipe_check": "round5_train.py defaults match actual training config"
+  "recipe_check": "round5_train.py defaults match actual training config",
+  "official_score_source": "User reported"
 }

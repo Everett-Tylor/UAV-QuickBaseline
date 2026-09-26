@@ -1,0 +1,152 @@
+"""Fine tuning with bounded sampling of difficult labelled classes and imaging conditions."""
+import argparse,copy,json,random,time
+from pathlib import Path
+import numpy as np
+from PIL import Image,ImageEnhance,ImageFilter
+import torch
+from torch.nn import functional as F
+from torch.utils.data import Dataset,DataLoader,WeightedRandomSampler
+from improvedseg import CropDataset,read_pair,tensor_image,paired_paths,split_pairs,seed_worker,segmentation_loss
+from round2seg import Segmenter,ValidationDataset,evaluate
+
+class RobustDataset(Dataset):
+    def __init__(self,pairs,size): self.pairs,self.size=pairs,size
+    def __len__(self): return len(self.pairs)
+    def __getitem__(self,i):
+        image,mask=read_pair(*self.pairs[i])
+        if random.random()<.5:
+            scale=random.uniform(.75,1.)
+            w,h=round(image.width*scale),round(image.height*scale)
+            x,y=random.randint(0,image.width-w),random.randint(0,image.height-h)
+            box=(x,y,x+w,y+h);image,mask=image.crop(box),mask.crop(box)
+        image=image.resize((self.size,self.size),Image.Resampling.BILINEAR)
+        mask=mask.resize((self.size,self.size),Image.Resampling.NEAREST)
+        for flip in (Image.Transpose.FLIP_LEFT_RIGHT,Image.Transpose.FLIP_TOP_BOTTOM):
+            if random.random()<.5: image,mask=image.transpose(flip),mask.transpose(flip)
+        rotation=random.choice([None,Image.Transpose.ROTATE_90,Image.Transpose.ROTATE_180,Image.Transpose.ROTATE_270])
+        if rotation is not None: image,mask=image.transpose(rotation),mask.transpose(rotation)
+        for enhancer,lo,hi in [(ImageEnhance.Brightness,.7,1.3),(ImageEnhance.Contrast,.7,1.3),(ImageEnhance.Color,.6,1.4)]:
+            image=enhancer(image).enhance(random.uniform(lo,hi))
+        if random.random()<.1: image=image.filter(ImageFilter.GaussianBlur(random.uniform(.2,.8)))
+        x=tensor_image(image)
+        if random.random()<.5: x=x.pow(random.uniform(.75,1.35))
+        return x,torch.from_numpy(np.asarray(mask,dtype=np.int64).copy())
+
+@torch.no_grad()
+def update_ema(ema,student,updates):
+    decay=min(.999,(1+updates)/(10+updates))
+    for e,s in zip(ema.parameters(),student.parameters()): e.lerp_(s,1-decay)
+    for e,s in zip(ema.buffers(),student.buffers()): e.copy_(s)
+
+def lovasz_softmax(logits, target):
+    # Lovasz extension of the Jaccard loss, averaged over present foreground classes.
+    probs=logits.float().softmax(1).permute(0,2,3,1).reshape(-1,9)
+    labels=target.reshape(-1);valid=labels!=0
+    probs,labels=probs[valid],labels[valid]
+    losses=[]
+    for c in range(1,9):
+        foreground=(labels==c).float()
+        if foreground.sum()==0: continue
+        errors=(foreground-probs[:,c]).abs()
+        errors,order=torch.sort(errors,descending=True)
+        fg=foreground[order];n=fg.sum()
+        intersection=n-fg.cumsum(0)
+        union=n+(1-fg).cumsum(0)
+        grad=1-intersection/union
+        grad=torch.cat((grad[:1],grad[1:]-grad[:-1]))
+        losses.append(torch.dot(errors,grad))
+    return torch.stack(losses).mean() if losses else logits.sum()*0
+
+def sampling_weights(training, counts_path, profiles_path):
+    counts=json.loads(Path(counts_path).read_text())
+    profiles=json.loads(Path(profiles_path).read_text())
+    train_profiles={r['name']:r for r in profiles if r['group']=='train'}
+    expected={image.name for image,_ in training}
+    if set(counts)!=expected or set(train_profiles)!=expected:
+        raise ValueError('Sampling metadata must match only the fixed training split')
+    thresholds={k:float(np.quantile([r[k] for r in train_profiles.values()],.25)) for k in ['brightness','contrast']}
+    weights=[];groups=[]
+    for image,_ in training:
+        c=counts[image.name];n=sum(c);r=train_profiles[image.name]
+        if len(c)!=9 or n<=0:raise ValueError('Invalid pixel counts')
+        flags=[c[5]>=.01*n,c[8]>=.001*n,r['brightness']<=thresholds['brightness'],r['contrast']<=thresholds['contrast']]
+        weights.append(1.+sum(v*f for v,f in zip([.75,.35,.35,.35],flags)))
+        groups.append(flags)
+    w=np.asarray(weights);g=np.asarray(groups,dtype=float);p=w/w.sum()
+    report={'method':'bounded hard-group weighted sampling with replacement','thresholds_from_train':thresholds,
+        'group_order':['barren_1pct','vehicle_0.1pct','dark','low_contrast'],
+        'uniform_group_frequency':g.mean(0).tolist(),'weighted_group_frequency':(g*p[:,None]).sum(0).tolist(),
+        'min_weight':float(w.min()),'max_weight':float(w.max()),'samples_per_epoch':len(training),
+        'metadata_uses_only_fixed_training_split':True}
+    return torch.tensor(w,dtype=torch.double),report
+
+def train(a):
+    torch.set_num_threads(4)
+    random.seed(a.seed);np.random.seed(a.seed);torch.manual_seed(a.seed)
+    torch.backends.cudnn.benchmark=True
+    out=Path(a.out);out.mkdir(parents=True,exist_ok=True)
+    if (out/'history.jsonl').exists(): raise ValueError('Use a fresh experiment directory')
+    training,validation,split=split_pairs(paired_paths(a),a.split,.1,a.seed)
+    (out/'split.json').write_text(json.dumps(split),encoding='utf-8')
+    (out/'config.json').write_text(json.dumps(vars(a),indent=2),encoding='utf-8')
+    weights=torch.tensor(json.loads(Path(a.class_balance).read_text())['weights'],device='cuda')
+    g=torch.Generator().manual_seed(a.seed)
+    dataset=CropDataset(training,a.size,True,sampling='resize') if a.mild else RobustDataset(training,a.size)
+    sample_weights,sampling_report=sampling_weights(training,a.mask_counts,a.profiles)
+    (out/'sampling_report.json').write_text(json.dumps(sampling_report,indent=2))
+    sampler=WeightedRandomSampler(sample_weights,len(training),replacement=True,generator=g)
+    loader=DataLoader(dataset,batch_size=a.batch,sampler=sampler,generator=g,
+        num_workers=a.workers,pin_memory=True,worker_init_fn=seed_worker,persistent_workers=a.workers>0)
+    val=DataLoader(ValidationDataset(validation,a.size),batch_size=2,num_workers=a.workers,
+        pin_memory=True,persistent_workers=a.workers>0)
+    student=Segmenter(a.source,config_only=True).cuda()
+    student.load_state_dict(torch.load(a.init,map_location='cpu',weights_only=False)['model'])
+    ema=copy.deepcopy(student).eval().requires_grad_(False)
+    optimizer=torch.optim.AdamW([{'params':student.net.segformer.parameters(),'lr':a.lr},
+        {'params':student.net.decode_head.parameters(),'lr':a.lr*10}],weight_decay=.02)
+    scaler=torch.amp.GradScaler('cuda');best=-1.;step=0;updates=0
+    started=time.time();total=a.epochs*len(loader)
+    for epoch in range(1,a.epochs+1):
+        student.train();optimizer.zero_grad(set_to_none=True);sum_loss=0.
+        for batch,(x,y) in enumerate(loader,1):
+            factor=min(1.,(step+1)/100)*(.05+.95*(1-step/total)**.9)
+            for group,base in zip(optimizer.param_groups,[a.lr,a.lr*10]): group['lr']=base*factor
+            x,y=x.cuda(non_blocking=True),y.cuda(non_blocking=True)
+            with torch.autocast('cuda',dtype=torch.float16):
+                logits=F.interpolate(student(x),size=y.shape[-2:],mode='bilinear',align_corners=False)
+                loss=segmentation_loss(logits,y,.5,weights)+.3*lovasz_softmax(logits,y)
+            if not torch.isfinite(loss): raise RuntimeError('Non-finite training loss')
+            group_start=((batch-1)//a.accum)*a.accum
+            divisor=min(a.accum,len(loader)-group_start)
+            scaler.scale(loss/divisor).backward()
+            if batch%a.accum==0 or batch==len(loader):
+                scaler.unscale_(optimizer);torch.nn.utils.clip_grad_norm_(student.parameters(),1)
+                old_scale=scaler.get_scale();scaler.step(optimizer);scaler.update()
+                optimizer.zero_grad(set_to_none=True)
+                if scaler.get_scale()>=old_scale:
+                    updates+=1;update_ema(ema,student,updates)
+            sum_loss+=loss.item();step+=1
+            if batch==1 or batch%100==0:
+                print(f'epoch={epoch}/{a.epochs} batch={batch}/{len(loader)} loss={sum_loss/batch:.4f} elapsed={time.time()-started:.0f}s peakGB={torch.cuda.max_memory_allocated()/1e9:.2f}',flush=True)
+            if a.smoke and batch==2:
+                with torch.no_grad():
+                    assert torch.isfinite(ema(x)).all()
+                print('SMOKE_OK',flush=True);return
+        metrics=evaluate(ema,val)
+        row={'epoch':epoch,'loss':sum_loss/len(loader),'elapsed_seconds':time.time()-started,**metrics}
+        with (out/'history.jsonl').open('a') as f:f.write(json.dumps(row)+'\n')
+        print(json.dumps(row),flush=True)
+        state={'model':ema.state_dict(),'epoch':epoch,'metrics':metrics,'config':vars(a),'split':split,'ema_updates':updates}
+        if metrics['mIoU_present_nonignored']>best:
+            best=metrics['mIoU_present_nonignored'];torch.save(state,out/'best.pth')
+        torch.save({**state,'student':student.state_dict(),'optimizer':optimizer.state_dict(),'scaler':scaler.state_dict()},out/'last.pth')
+
+if __name__=='__main__':
+    p=argparse.ArgumentParser()
+    for name in ('images','masks','split','class-balance','source','init','out','mask-counts','profiles'):p.add_argument('--'+name,required=True)
+    p.add_argument('--epochs',type=int,default=6);p.add_argument('--size',type=int,default=640)
+    p.add_argument('--batch',type=int,default=4);p.add_argument('--accum',type=int,default=2)
+    p.add_argument('--workers',type=int,default=4);p.add_argument('--seed',type=int,default=20260923)
+    p.add_argument('--mild',action='store_true')
+    p.add_argument('--lr',type=float,default=1.5e-5);p.add_argument('--smoke',action='store_true')
+    train(p.parse_args())
