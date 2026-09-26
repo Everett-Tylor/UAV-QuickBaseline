@@ -1,0 +1,8 @@
+# Install a CUDA-enabled PyTorch appropriate for your GPU separately.
+torch>=2.6
+torchvision
+numpy
+Pillow
+transformers==5.17.0
+safetensors==0.8.0
+huggingface-hub==1.32.0

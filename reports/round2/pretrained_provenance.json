@@ -1,0 +1,31 @@
+{
+  "model": "nvidia/mit-b1",
+  "revision": "13ddceec4e8bdf401e7cd7acf5aebc526222518c",
+  "download_endpoint": "https://hf-mirror.com",
+  "sha256": "980b86b60db37b1b1528086f6c53d253d879e9e09ebe07397b40fd275738a3bf",
+  "metadata": [
+    {
+      "type": "file",
+      "oid": "1f89dcea1ad5ce3fbdfa3270a9c46ea0b03f8ea1",
+      "size": 54732285,
+      "lfs": {
+        "oid": "980b86b60db37b1b1528086f6c53d253d879e9e09ebe07397b40fd275738a3bf",
+        "size": 54732285,
+        "pointerSize": 133
+      },
+      "xetHash": "9123a4d3960ae6dc7803d314bc5068d806f23b8aaab8d5563a98b37634ac08ab",
+      "path": "pytorch_model.bin"
+    }
+  ],
+  "initial_segmentation_weights_sha256": "0cf7a99b74c476fbded9f7a39abe542ac7fa29a985a230c485e5fd6918fa39bc",
+  "initialization_seed": 2026,
+  "backbone_pretraining": "ImageNet-1k",
+  "decoder": "randomly initialized 9-class",
+  "external_weights_authorized": true,
+  "test2_count": 1300,
+  "test2_size": [
+    1024,
+    1024
+  ],
+  "test2_has_labels": false
+}

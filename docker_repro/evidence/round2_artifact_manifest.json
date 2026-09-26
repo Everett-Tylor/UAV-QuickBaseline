@@ -1,0 +1,17 @@
+{
+  "submission_round2_1300.zip": {
+    "bytes": 13223506,
+    "entries": 1300,
+    "sha256": "153dfeda501f9e1081696e7bed67f7abf37b74af9f3935be0b58cfc227d090df"
+  },
+  "round2_model.zip": {
+    "bytes": 50797964,
+    "entries": 4,
+    "sha256": "b2c5316650c7811b42c79190a55f54dd2f79223e25668c7c65bb2ad7f71c0763"
+  },
+  "UAV_复赛源码与报告.zip": {
+    "bytes": 96598,
+    "entries": 25,
+    "sha256": "c559a320cd5f0eece392efa23663093a68025443e1c7d5338418b4cf56515ee2"
+  }
+}
