@@ -1,0 +1,19 @@
+{
+  "model": "SegFormer B5 fine-tuned on ADE20K at 640 pixels",
+  "local_source": "D:/deepseek-harness/ds/models/segformer/segformer-b5-finetuned-ade-640-640",
+  "weight_file": "pytorch_model.bin",
+  "weight_sha256": "a3dbf2d7a9912203078f304d88df8cfee9fd752ca2d2413f82036bdb02c5e7df",
+  "parameters_after_classifier_replacement": 84600265,
+  "training_samples": 6296,
+  "validation_samples": 700,
+  "ignore_label": 0,
+  "evaluated_labels": [1, 2, 3, 4, 5, 6, 7, 8],
+  "ade_label_reduction_applied": false,
+  "initialization": "Preserve local pretrained encoder and decoder; randomly initialize a nine-class classifier.",
+  "additional_training_data_used": false,
+  "test_images_used_for_training": false,
+  "multi_model_ensemble": false,
+  "previous_official_score_user_reported": 68.45,
+  "current_official_score": null
+}
+
