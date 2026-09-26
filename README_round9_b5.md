@@ -14,3 +14,11 @@ python outputs/UAV-QuickBaseline/b5_train.py --images DATA/train_images --masks 
 
 The run writes the nine-class architecture configuration under `model_config`, `best.pth`, `last.pth`, the split, arguments and per-epoch validation history. Use this architecture configuration with `Segmenter(config_only=True)` and strictly load the selected checkpoint for inference. Weights and competition datasets are not uploaded to GitHub.
 
+## Continuation pipeline
+
+`b5_pipeline.py --workspace WORKSPACE_ROOT` waits for the active eight-epoch run to finish and for its final checkpoint save to settle. If training fails or stops advancing, it records the failure instead of exporting a stale model. If the initial best validation mIoU is below 70%, it stops for diagnosis; this is a local sanity threshold, not a prediction of official performance.
+
+After a successful initial run, the pipeline fine-tunes at 640 pixels for three epochs (encoder LR 2e-6, decoder LR 2e-5), starting from the initial best EMA checkpoint. It independently evaluates the best 512 and 640 checkpoints with scales 512/640/768 and horizontal flip. It selects the checkpoint with higher validation mIoU, then predicts all 1300 test-2 images with that one checkpoint. There is no averaging or combination of model weights or predictions across checkpoints.
+
+Status and logs are saved under `outputs/round9_b5`. On success, `selection.json` records all candidate validation results, the selected model, archive SHA256 and a null official score. The ZIP is `outputs/submission_round9_b5_single.zip`. The refinement and export stages are planned operations until the status file confirms completion; no official score above 70 is claimed.
+
