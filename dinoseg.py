@@ -24,8 +24,19 @@ class MixStyle(nn.Module):
         new_std=weight*std+(1-weight)*std[order]
         return (((value-mean)/std)*new_std+new_mean).to(dtype=x.dtype)
 
+class ContextAdapter(nn.Module):
+    def __init__(self):
+        super().__init__()
+        self.scales=(1,2,4,8)
+        self.branches=nn.ModuleList([nn.Sequential(nn.Conv2d(128,32,1,bias=False),nn.GroupNorm(8,32),nn.GELU()) for _ in self.scales])
+        self.project=nn.Conv2d(128,128,1)
+        nn.init.zeros_(self.project.weight);nn.init.zeros_(self.project.bias)
+    def forward(self,x):
+        pooled=[F.interpolate(branch(F.adaptive_avg_pool2d(x,s)),size=x.shape[-2:],mode='bilinear',align_corners=False) for s,branch in zip(self.scales,self.branches)]
+        return x+self.project(torch.cat(pooled,dim=1))
+
 class DinoSegmenter(nn.Module):
-    def __init__(self,source,config_only=False):
+    def __init__(self,source,config_only=False,head_variant='pyramid'):
         super().__init__()
         if config_only:
             cfg=DINOv3ViTConfig.from_pretrained(source,local_files_only=True)
@@ -43,6 +54,13 @@ class DinoSegmenter(nn.Module):
         self.frozen_backbone=False
         self.mixstyle=MixStyle()
         self.mixstyle_enabled=False
+        if head_variant not in ('pyramid','context_boundary'):raise ValueError(head_variant)
+        self.head_variant=head_variant
+        if head_variant=='context_boundary':
+            self.context_adapter=ContextAdapter()
+            self.detail_adapter=nn.Sequential(conv(160,64),nn.Conv2d(64,160,1))
+            nn.init.zeros_(self.detail_adapter[-1].weight);nn.init.zeros_(self.detail_adapter[-1].bias)
+            self.boundary_head=nn.Sequential(conv(160,32),nn.Conv2d(32,1,1))
 
     def freeze_backbone(self,freeze):
         self.frozen_backbone=freeze
@@ -54,7 +72,7 @@ class DinoSegmenter(nn.Module):
         if self.frozen_backbone:self.backbone.eval()
         return self
 
-    def forward(self,x):
+    def forward(self,x,return_aux=False):
         h,w=x.shape[-2:]
         if h%32 or w%32:raise ValueError('Input dimensions must be divisible by 32')
         normalized=(x-self.mean)/self.std
@@ -70,10 +88,29 @@ class DinoSegmenter(nn.Module):
             feature=proj(tokens.transpose(1,2).reshape(x.shape[0],-1,gh,gw))
             if self.mixstyle_enabled and index in (3,6):feature=self.mixstyle(feature)
             features.append(F.interpolate(feature,size=(int(gh*scale),int(gw*scale)),mode='bilinear',align_corners=False))
+        if self.head_variant=='context_boundary':features[2]=self.context_adapter(features[2])
         fused=None
         for i in [3,2,1,0]:
             value=features[i]
             if fused is not None:value=value+F.interpolate(fused,size=value.shape[-2:],mode='bilinear',align_corners=False)
             fused=value+self.fusions[i](value)
         detail=self.detail(normalized)
-        return self.classifier(torch.cat([fused,detail],dim=1))
+        joint=torch.cat([fused,detail],dim=1)
+        if self.head_variant=='context_boundary':joint=joint+self.detail_adapter(joint)
+        logits=self.classifier(joint)
+        if return_aux:
+            if self.head_variant!='context_boundary':raise ValueError('Boundary head is not enabled')
+            return logits,self.boundary_head(joint)
+        return logits
+
+def load_dino_weights(model,state,allow_head_upgrade=False):
+    old_variant=state.get('config',{}).get('head_variant','pyramid')
+    if allow_head_upgrade and old_variant=='pyramid' and model.head_variant=='context_boundary':
+        missing,unexpected=model.load_state_dict(state['model'],strict=False)
+        added=('context_adapter.','detail_adapter.','boundary_head.')
+        expected={k for k in model.state_dict() if k.startswith(added)}
+        if set(missing)!=expected or unexpected:raise RuntimeError(f'Invalid head upgrade: {missing}, {unexpected}')
+    else:
+        if old_variant!=model.head_variant:raise ValueError('Checkpoint architecture mismatch')
+        model.load_state_dict(state['model'],strict=True)
+

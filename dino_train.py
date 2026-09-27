@@ -5,7 +5,7 @@ import numpy as np
 import torch
 from torch.nn import functional as F
 from torch.utils.data import DataLoader
-from dinoseg import DinoSegmenter
+from dinoseg import DinoSegmenter,load_dino_weights
 from improvedseg import CropDataset,paired_paths,split_pairs,seed_worker,segmentation_loss,metrics_from_hist
 from round2seg import ValidationDataset
 from round4_train import lovasz_softmax,update_ema,RobustDataset
@@ -18,6 +18,22 @@ class MixedScaleDataset(torch.utils.data.Dataset):
     def __len__(self):return len(self.full)
     def __getitem__(self,index):
         return (self.crop if random.random()<.5 else self.full)[index]
+
+def boundary_loss(logits,target):
+    valid=target!=0
+    edge=torch.zeros_like(valid)
+    dh=(target[:,1:]!=target[:,:-1])&valid[:,1:]&valid[:,:-1]
+    dw=(target[:,:,1:]!=target[:,:,:-1])&valid[:,:,1:]&valid[:,:,:-1]
+    edge[:,1:]|=dh;edge[:,:-1]|=dh;edge[:,:,1:]|=dw;edge[:,:,:-1]|=dw
+    edge=F.max_pool2d(edge[:,None].float(),3,1,1)[:,0]
+    # Exclude ignored pixels and their neighbourhood, including the image border.
+    invalid=F.pad((~valid)[:,None].float(),(1,1,1,1),value=1)
+    keep=F.max_pool2d(invalid,3,1)[:,0]==0
+    prediction=F.interpolate(logits.float(),size=target.shape[-2:],mode='bilinear',align_corners=False)[:,0]
+    if not keep.any():return prediction.sum()*0
+    labels=edge[keep];positive=labels.sum()
+    weight=((labels.numel()-positive)/(positive+1)).clamp(1,10).detach()
+    return F.binary_cross_entropy_with_logits(prediction[keep],labels,pos_weight=weight)
 
 @torch.inference_mode()
 def evaluate(model,loader):
@@ -44,14 +60,18 @@ def train(a):
     else:dataset=CropDataset(training,a.size,True,sampling='resize')
     loader=DataLoader(dataset,batch_size=a.batch,shuffle=True,generator=g,num_workers=a.workers,pin_memory=True,worker_init_fn=seed_worker,persistent_workers=a.workers>0)
     val=DataLoader(ValidationDataset(validation,a.size),batch_size=2,num_workers=a.workers,pin_memory=True,persistent_workers=a.workers>0)
-    model=DinoSegmenter(a.source,config_only=bool(a.init)).cuda()
-    if a.init:model.load_state_dict(torch.load(a.init,map_location='cpu',weights_only=False)['model'])
+    model=DinoSegmenter(a.source,config_only=bool(a.init),head_variant=a.head_variant).cuda()
+    if a.init:load_dino_weights(model,torch.load(a.init,map_location='cpu',weights_only=False),allow_head_upgrade=True)
     model.mixstyle_enabled=a.mixstyle
     model.backbone.gradient_checkpointing_enable(gradient_checkpointing_kwargs={'use_reentrant':False})
     ema=copy.deepcopy(model).eval().requires_grad_(False)
     backbone=list(model.backbone.parameters());ids={id(p) for p in backbone}
-    decoder=[p for p in model.parameters() if id(p) not in ids]
-    optimizer=torch.optim.AdamW([{'params':backbone,'lr':a.lr},{'params':decoder,'lr':a.head_lr}],weight_decay=.01,foreach=False)
+    added=[p for name,p in model.named_parameters() if name.startswith(('context_adapter.','detail_adapter.','boundary_head.'))]
+    added_ids={id(p) for p in added}
+    decoder=[p for p in model.parameters() if id(p) not in ids and id(p) not in added_ids]
+    groups=[{'params':backbone,'lr':a.lr},{'params':decoder,'lr':a.head_lr}]
+    if added:groups.append({'params':added,'lr':a.new_head_lr})
+    optimizer=torch.optim.AdamW(groups,weight_decay=.01,foreach=False)
     best=-1.;updates=0;step=0;total=a.epochs*len(loader);start=time.time()
     for epoch in range(1,a.epochs+1):
         frozen=epoch<=a.freeze_epochs;model.freeze_backbone(frozen);model.train();optimizer.zero_grad(set_to_none=True);loss_sum=0.
@@ -59,10 +79,14 @@ def train(a):
             factor=min(1.,(step+1)/100)*(.05+.95*(1-step/total)**.9)
             optimizer.param_groups[0]['lr']=0 if frozen else a.lr*factor
             optimizer.param_groups[1]['lr']=a.head_lr*factor
+            if added:optimizer.param_groups[2]['lr']=a.new_head_lr*factor
             x,y=x.cuda(non_blocking=True),y.cuda(non_blocking=True)
             with torch.autocast('cuda',dtype=torch.bfloat16):
-                logits=F.interpolate(model(x),size=y.shape[-2:],mode='bilinear',align_corners=False)
+                if a.head_variant=='context_boundary':raw,edges=model(x,return_aux=True)
+                else:raw=model(x)
+                logits=F.interpolate(raw,size=y.shape[-2:],mode='bilinear',align_corners=False)
                 loss=segmentation_loss(logits,y,.5,weights)+.3*lovasz_softmax(logits,y)
+                if a.head_variant=='context_boundary':loss=loss+a.boundary_weight*boundary_loss(edges,y)
             if not torch.isfinite(loss):raise RuntimeError('Non-finite loss')
             start_group=((batch-1)//a.accum)*a.accum;divisor=min(a.accum,len(loader)-start_group)
             (loss/divisor).backward()
@@ -79,7 +103,7 @@ def train(a):
         row={'epoch':epoch,'frozen_backbone':frozen,'loss':loss_sum/len(loader),'elapsed_seconds':time.time()-start,**metrics}
         with (out/'history.jsonl').open('a') as f:f.write(json.dumps(row)+'\n')
         print(json.dumps(row),flush=True)
-        state={'model':ema.state_dict(),'epoch':epoch,'metrics':metrics,'config':vars(a),'split':split,'ema_updates':updates,'architecture':'dinov3_pyramid128'}
+        state={'model':ema.state_dict(),'epoch':epoch,'metrics':metrics,'config':vars(a),'split':split,'ema_updates':updates,'architecture':'dinov3_'+a.head_variant}
         if metrics['mIoU_present_nonignored']>best:best=metrics['mIoU_present_nonignored'];torch.save(state,out/'best.pth')
         torch.save({**state,'student':model.state_dict(),'optimizer':optimizer.state_dict()},out/'last.pth')
 
@@ -92,5 +116,8 @@ if __name__=='__main__':
     p.add_argument('--lr',type=float,default=1e-5);p.add_argument('--head-lr',type=float,default=3e-4)
     p.add_argument('--mixstyle',action='store_true')
     p.add_argument('--augmentation',choices=['mild','robust','mixed'],default='mild')
+    p.add_argument('--head-variant',choices=['pyramid','context_boundary'],default='pyramid')
+    p.add_argument('--new-head-lr',type=float,default=2e-4)
+    p.add_argument('--boundary-weight',type=float,default=.1)
     p.add_argument('--smoke',action='store_true');train(p.parse_args())
 

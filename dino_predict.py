@@ -34,12 +34,14 @@ class Inputs(Dataset):
 def run(a):
     torch.set_num_threads(4)
     state=torch.load(a.checkpoint,map_location='cpu',weights_only=False)
-    model=DinoSegmenter(a.source,config_only=True).cuda().eval();model.load_state_dict(state['model'])
+    model=DinoSegmenter(a.source,config_only=True,head_variant=state.get('config',{}).get('head_variant','pyramid')).cuda().eval();model.load_state_dict(state['model'])
     models=[model]
     if a.ensemble_checkpoint:
         other_class=DinoSegmenter if a.ensemble_architecture=='dino' else Segmenter
-        other=other_class(a.ensemble_source or a.source,config_only=True).cuda().eval()
-        other.load_state_dict(torch.load(a.ensemble_checkpoint,map_location='cpu',weights_only=False)['model'])
+        other_state=torch.load(a.ensemble_checkpoint,map_location='cpu',weights_only=False)
+        kwargs={'head_variant':other_state.get('config',{}).get('head_variant','pyramid')} if a.ensemble_architecture=='dino' else {}
+        other=other_class(a.ensemble_source or a.source,config_only=True,**kwargs).cuda().eval()
+        other.load_state_dict(other_state['model'])
         models.append(other)
     if a.masks:
         _,pairs,_=split_pairs(paired_paths(a),a.split,.1,2026)
@@ -101,3 +103,4 @@ if __name__=='__main__':
     p.add_argument('--ensemble-architecture',choices=['dino','segformer'],default='dino')
     p.add_argument('--workers',type=int,default=4)
     run(p.parse_args())
+
