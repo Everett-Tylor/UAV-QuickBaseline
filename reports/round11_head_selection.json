@@ -1,0 +1,18 @@
+{
+  "baseline": {
+    "all": 0.7838392685042884,
+    "brightness": 0.7182860788556863,
+    "contrast": 0.745958701288669
+  },
+  "scores": {
+    "all": 0.782777170390871,
+    "brightness": 0.7177436983685826,
+    "contrast": 0.7446251788009868
+  },
+  "official_baseline": 68.45,
+  "official_round10_robust640": 68.36,
+  "official_current": null,
+  "checkpoint": "C:\\Users\\10509\\Documents\\Codex\\2026-09-20\\github-plugin-github-openai-curated-remote\\outputs\\runs\\round11_context_boundary640\\best.pth",
+  "head_variant": "context_boundary",
+  "single_checkpoint": true
+}
