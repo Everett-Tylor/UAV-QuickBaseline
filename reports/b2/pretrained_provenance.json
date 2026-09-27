@@ -1,0 +1,10 @@
+{
+  "model": "nvidia/segformer-b2-finetuned-ade-512-512",
+  "source": "https://huggingface.co/nvidia/segformer-b2-finetuned-ade-512-512",
+  "file": "pytorch_model.bin",
+  "sha256": "187ca07bea003a5717c63d04ea90b07f33cd033c0ebf44b4b89fce5070d6c8f3",
+  "target_classes": 9,
+  "ignore_index": 0,
+  "pretrained_encoder_and_decoder": true,
+  "classifier_reinitialized": true
+}

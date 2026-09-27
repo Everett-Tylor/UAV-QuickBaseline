@@ -1,0 +1,17 @@
+{
+  "date": "2026-09-27",
+  "python": "3.12.14",
+  "torch": "2.8.0+cu128",
+  "transformers": "4.57.1",
+  "gpu": "NVIDIA GeForce RTX 5060 Laptop GPU",
+  "unit_tests_passed": 3,
+  "tested": [
+    "Reject non-B2 model architecture",
+    "Reject bad mask IDs and duplicate output stems",
+    "Real B2 CUDA optimizer update, EMA, save, reload, held-out validation and prediction ZIP on synthetic images",
+    "Official training data 512px batch2 accumulation4 forward/backward and EMA smoke test"
+  ],
+  "smoke_512_peak_tensor_gb": 3.16,
+  "formal_training_completed": false,
+  "official_score": null
+}

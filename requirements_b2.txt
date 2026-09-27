@@ -1,0 +1,6 @@
+# Install CUDA-enabled torch separately; tested target: torch 2.8.0 + cu128.
+torch==2.8.0
+transformers==4.57.1
+numpy>=1.26,<3
+Pillow>=10,<13
+safetensors>=0.4.3
