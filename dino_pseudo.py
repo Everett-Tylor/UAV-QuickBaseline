@@ -25,6 +25,22 @@ def filter_labels(mean_probs,view_labels,confidence=.95,agreement=.75):
     keep=(score>=confidence)&(votes>=agreement)&(label!=0)
     return torch.where(keep,label,torch.zeros_like(label)),keep
 
+def class_thresholds(hist,retain=.6,floor=.92,ceiling=.99):
+    if hist.shape!=(9,1001) or not 0<retain<=1 or not 0<floor<=ceiling<=1:raise ValueError('Invalid calibration configuration')
+    thresholds=np.full(9,ceiling,dtype=np.float64);thresholds[0]=1.
+    for c in range(1,9):
+        total=int(hist[c].sum())
+        if total:
+            count=max(1,int(np.ceil(total*retain)))
+            offset=int(np.searchsorted(np.cumsum(hist[c,::-1]),count,side='left'))
+            thresholds[c]=np.clip((1000-offset)/1000.,floor,ceiling)
+    return thresholds
+
+def apply_thresholds(labels,confidence_codes,agreed,thresholds):
+    required=np.ceil(np.asarray(thresholds)*65535).astype(np.int64)
+    keep=agreed&(labels!=0)&(confidence_codes.astype(np.int64)>=required[labels])
+    return np.where(keep,labels,0).astype(np.uint8),keep
+
 def load_pseudo_pairs(manifest_path,validation):
     manifest=json.loads(Path(manifest_path).read_text(encoding='utf-8'))
     if manifest.get('complete') is not True:raise ValueError('Incomplete pseudo-label set')
@@ -58,6 +74,10 @@ def run(a):
         if value in seen:raise ValueError(f'Duplicate pixels in unlabeled data: {p}')
         hashes[p.name]=value;seen.add(value)
     out.mkdir(parents=True)
+    hist=np.zeros((9,1001),dtype=np.int64)
+    if a.class_keep:
+        if not 0<a.class_keep<=1 or not 0<a.confidence_floor<=a.confidence_ceiling<=1:raise ValueError('Invalid class threshold settings')
+        (out/'confidence_cache').mkdir()
     torch.set_num_threads(4)
     state=torch.load(a.checkpoint,map_location='cpu',weights_only=False)
     model=DinoSegmenter(a.source,config_only=True,head_variant=state.get('config',{}).get('head_variant','pyramid')).cuda().eval()
@@ -75,6 +95,19 @@ def run(a):
                 total=probs if total is None else total+probs
                 votes.append(probs.argmax(1).to(torch.uint8))
         mean=total/len(votes)
+        if a.class_keep:
+            score,raw=mean.max(1)
+            agree=(torch.stack(votes)==raw.unsqueeze(0)).float().mean(0)>=a.agreement
+            raw=raw[0].cpu().numpy().astype(np.uint8)
+            codes=torch.floor(score[0]*65535).cpu().numpy().astype(np.uint16)
+            agree=agree[0].cpu().numpy()
+            predicted+=np.bincount(raw.reshape(-1),minlength=9)
+            eligible=agree&(raw!=0)
+            bins=codes[eligible].astype(np.int64)*1000//65535
+            hist+=np.bincount(raw[eligible].astype(np.int64)*1001+bins,minlength=9009).reshape(9,1001)
+            np.savez_compressed(out/'confidence_cache'/(paths[i-1].stem+'.npz'),labels=raw,confidence=codes,agreed=agree)
+            if i%100==0 or i==len(paths):print(f'calibration={i}/{len(paths)}',flush=True)
+            continue
         label,keep=filter_labels(mean,torch.stack(votes),a.confidence,a.agreement)
         ids=label[0].cpu().numpy().astype(np.uint8)
         raw=mean.argmax(1)[0].cpu().numpy()
@@ -84,8 +117,22 @@ def run(a):
         rows.append({'image':str(paths[i-1].resolve()),'mask':str(dest),'pixel_sha256':hashes[names[0]],
                      'mask_sha256':digest(dest),'coverage':float(keep.float().mean())})
         if i%100==0 or i==len(paths):print(f'pseudo={i}/{len(paths)}',flush=True)
+    thresholds=None
+    if a.class_keep:
+        thresholds=class_thresholds(hist,a.class_keep,a.confidence_floor,a.confidence_ceiling)
+        print(json.dumps({'class_thresholds':thresholds.tolist()}),flush=True)
+        for p in paths:
+            with np.load(out/'confidence_cache'/(p.stem+'.npz')) as cached:
+                ids,keep=apply_thresholds(cached['labels'],cached['confidence'],cached['agreed'],thresholds)
+            retained+=np.bincount(ids[ids!=0],minlength=9)
+            dest=out/(p.stem+'.png');Image.fromarray(ids).save(dest)
+            rows.append({'image':str(p.resolve()),'mask':str(dest),'pixel_sha256':hashes[p.name],
+                         'mask_sha256':digest(dest),'coverage':float(keep.mean())})
     manifest={'complete':True,'teacher':str(Path(a.checkpoint).resolve()),'teacher_sha256':digest(a.checkpoint),
-              'confidence':a.confidence,'agreement':a.agreement,'min_coverage':a.min_coverage,
+              'confidence':thresholds.tolist() if thresholds is not None else a.confidence,
+              'filter_strategy':'class_adaptive' if a.class_keep else 'fixed',
+              'class_keep':a.class_keep,'confidence_floor':a.confidence_floor,'confidence_ceiling':a.confidence_ceiling,
+              'agreement':a.agreement,'min_coverage':a.min_coverage,
               'sizes':a.sizes,'hflip':True,'brightness_floor':.35,'max_brightening':1.25,
               'predicted_class_pixels':predicted.tolist(),'retained_class_pixels':retained.tolist(),'images':rows}
     (out/'manifest.json').write_text(json.dumps(manifest,indent=2),encoding='utf-8')
@@ -99,5 +146,7 @@ if __name__=='__main__':
     p.add_argument('--sizes',type=int,nargs='+',default=[512,640,768,896])
     p.add_argument('--confidence',type=float,default=.95);p.add_argument('--agreement',type=float,default=.75)
     p.add_argument('--min-coverage',type=float,default=.02);p.add_argument('--workers',type=int,default=4)
+    p.add_argument('--class-keep',type=float,default=0.)
+    p.add_argument('--confidence-floor',type=float,default=.92);p.add_argument('--confidence-ceiling',type=float,default=.99)
     run(p.parse_args())
 

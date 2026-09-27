@@ -1,0 +1,35 @@
+{
+  "teacher_official_score": 68.45,
+  "official_current": null,
+  "confidence": 0.95,
+  "agreement": 0.75,
+  "usable_images": 1251,
+  "mean_coverage": 0.5975960379380446,
+  "retained_class_pixels": [
+    0,
+    154144335,
+    184689930,
+    66563279,
+    87445951,
+    4696703,
+    220176325,
+    90602373,
+    6293426
+  ],
+  "single_checkpoint": true,
+  "test_set_self_training": true,
+  "rule_confirmation": "User explicitly confirmed allowed",
+  "scores": {
+    "all": 0.7843658269415954,
+    "brightness": 0.7180780500293318,
+    "contrast": 0.7444028786427546
+  },
+  "baseline": {
+    "all": 0.7838392685042884,
+    "brightness": 0.7182860788556863,
+    "contrast": 0.745958701288669
+  },
+  "checkpoint": "C:\\Users\\10509\\Documents\\Codex\\2026-09-20\\github-plugin-github-openai-curated-remote\\outputs\\runs\\round12_pseudo640\\best.pth",
+  "zip": "C:\\Users\\10509\\Documents\\Codex\\2026-09-20\\github-plugin-github-openai-curated-remote\\outputs\\submission_round12_pseudo_single.zip",
+  "sha256": "866788aab4fecdec59be06fbfb826cd14055513d8099195c8b8a0df2d601237a"
+}

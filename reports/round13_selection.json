@@ -1,0 +1,56 @@
+{
+  "teacher_official_score": 68.45,
+  "official_current": null,
+  "confidence": [
+    1,
+    0.92,
+    0.989,
+    0.984,
+    0.99,
+    0.92,
+    0.99,
+    0.92,
+    0.99
+  ],
+  "agreement": 0.75,
+  "usable_images": 1254,
+  "mean_coverage": 0.5418622677142804,
+  "retained_class_pixels": [
+    0,
+    180634361,
+    146649785,
+    55173411,
+    71704962,
+    5613176,
+    170917681,
+    102836330,
+    5109194
+  ],
+  "single_checkpoint": true,
+  "test_set_self_training": true,
+  "rule_confirmation": "User explicitly confirmed allowed",
+  "filter_strategy": "class_adaptive",
+  "scores": {
+    "all": 0.783966600858115,
+    "brightness": 0.7183702464210344,
+    "contrast": 0.7444265338277416
+  },
+  "baseline": {
+    "all": 0.7838392685042884,
+    "brightness": 0.7182860788556863,
+    "contrast": 0.745958701288669
+  },
+  "checkpoint": "C:\\Users\\10509\\Documents\\Codex\\2026-09-20\\github-plugin-github-openai-curated-remote\\outputs\\runs\\round13_classbalanced640\\best.pth",
+  "round12_scores": {
+    "all": 0.7843658269415954,
+    "brightness": 0.7180780500293318,
+    "contrast": 0.7444028786427546
+  },
+  "delta_vs_round12": {
+    "all": -0.00039922608348041955,
+    "brightness": 0.0002921963917026371,
+    "contrast": 0.000023655184987037003
+  },
+  "zip": "C:\\Users\\10509\\Documents\\Codex\\2026-09-20\\github-plugin-github-openai-curated-remote\\outputs\\submission_round13_classbalanced_single.zip",
+  "sha256": "be4316a18efe727738405920e706f5cdf268d374ff938a05c45131d172cb850e"
+}

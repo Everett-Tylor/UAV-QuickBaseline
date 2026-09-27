@@ -1,6 +1,7 @@
 """Test confidence/agreement filtering and pseudo-label loss ignore behaviour."""
 import torch
-from dino_pseudo import filter_labels
+import numpy as np
+from dino_pseudo import filter_labels,class_thresholds,apply_thresholds
 from improvedseg import segmentation_loss
 
 def main():
@@ -19,7 +20,15 @@ def main():
     assert logits.grad[:,:,:,1:].abs().sum()==0
     zero=segmentation_loss(logits,torch.zeros_like(labels),0.)
     assert zero.item()==0 and torch.isfinite(zero)
-    print('PSEUDO_TEST_OK: confidence, agreement, class zero and ignored gradients',flush=True)
+    hist=np.zeros((9,1001),dtype=np.int64)
+    hist[1,920]=40;hist[1,980]=60
+    hist[2,900]=90;hist[2,960]=10;hist[3,1000]=100
+    thresholds=class_thresholds(hist)
+    np.testing.assert_allclose(thresholds[:5],[1,.98,.92,.99,.99])
+    ids,accepted=apply_thresholds(np.array([1,2,0,3],dtype=np.uint8),
+        np.floor(np.array([.96,.96,1.,1.])*65535).astype(np.uint16),np.array([True,True,True,False]),thresholds)
+    assert ids.tolist()==[0,2,0,0] and accepted.tolist()==[False,True,False,False]
+    print('PSEUDO_TEST_OK: fixed/adaptive thresholds, clipping, agreement, class zero and ignored gradients',flush=True)
 
 if __name__=='__main__':main()
 
