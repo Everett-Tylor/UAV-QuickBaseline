@@ -25,6 +25,9 @@ def choose_candidate(candidates):
 @torch.inference_mode()
 def main(a):
     torch.set_num_threads(4)
+    sizes = getattr(a, 'sizes', [512, 640, 768])
+    if not sizes or any(s < 32 or s % 32 for s in sizes):
+        raise ValueError('Inference sizes must be positive multiples of 32')
     out = Path(a.out)
     if out.exists():
         raise ValueError('Calibration report already exists')
@@ -53,7 +56,7 @@ def main(a):
             y = torch.from_numpy(np.asarray(im, dtype=np.int64).copy()).to(device)
         if y.shape != (rgb.height, rgb.width) or y.min() < 0 or y.max() > 8:
             raise ValueError(f'Invalid mask: {mask}')
-        total = probabilities(model, rgb, [512, 640, 768], True, device)
+        total = probabilities(model, rgb, sizes, True, device)
         group = 0 if path.name in calibration else 1
         valid = y != 0
         for k, scale in enumerate(scales):
@@ -73,7 +76,7 @@ def main(a):
               'calibration_images': sorted(calibration),
               'confirmation_images': sorted(set(names)-calibration),
               'checkpoint': a.checkpoint, 'source': a.source,
-              'sizes': [512, 640, 768], 'hflip': True,
+              'sizes': sizes, 'hflip': True,
               'note': 'Confirmation excludes calibration fitting but reuses the historical validation set; not an official test score.',
               'official_score': None}
     out.parent.mkdir(parents=True, exist_ok=True)
@@ -87,4 +90,5 @@ if __name__ == '__main__':
     p = argparse.ArgumentParser(description=__doc__)
     for name in ('checkpoint', 'source', 'images', 'masks', 'split', 'class-balance', 'out'):
         p.add_argument('--'+name, required=True)
+    p.add_argument('--sizes', type=int, nargs='+', default=[512, 640, 768])
     main(p.parse_args())
