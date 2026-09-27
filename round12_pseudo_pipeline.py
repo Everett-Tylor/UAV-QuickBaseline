@@ -5,7 +5,8 @@ from pathlib import Path
 def main(a):
     root=Path(a.workspace).resolve();code=root/'outputs/UAV-QuickBaseline'
     balanced=getattr(a,'class_balanced',False)
-    experiment='round13_classbalanced' if balanced else 'round12_pseudo'
+    classmix=getattr(a,'classmix',False)
+    experiment='round14_classmix_barren' if classmix else ('round13_classbalanced' if balanced else 'round12_pseudo')
     results=root/('outputs/'+experiment);results.mkdir(parents=True,exist_ok=True)
     status=results/'status.json'
     def record(stage,**kw):
@@ -18,15 +19,15 @@ def main(a):
     try:
         cfg=json.loads((root/'outputs/runs/round8_mixstyle640/config.json').read_text())
         teacher=root/'outputs/runs/round8_mixstyle640/best.pth'
-        pseudo=results/'masks'
+        pseudo=root/'outputs/round12_pseudo/masks' if classmix else results/'masks'
         train_out=root/('outputs/runs/'+experiment+'640')
         smoke_out=root/('outputs/runs/'+experiment+'640_smoke')
-        if any(p.exists() for p in [pseudo,train_out,smoke_out]):raise RuntimeError('Existing outputs require inspection before restarting')
+        if any(p.exists() for p in ([train_out,smoke_out] if classmix else [pseudo,train_out,smoke_out])):raise RuntimeError('Existing outputs require inspection before restarting')
         record('generating_pseudo_labels',teacher=str(teacher),rule_confirmation='User confirmed test_2 pseudo-label training is allowed')
         generation=['--source',cfg['source'],'--checkpoint',teacher,'--images',root/'work/round2_data/images',
             '--profiles',root/'outputs/round3/image_profiles.json','--out',pseudo]
         if balanced:generation+=['--class-keep',.6,'--confidence-floor',.92,'--confidence-ceiling',.99]
-        run('dino_pseudo.py',generation,'generation.log')
+        if not classmix:run('dino_pseudo.py',generation,'generation.log')
         manifest=json.loads((pseudo/'manifest.json').read_text())
         usable=sum(r['coverage']>=manifest['min_coverage'] for r in manifest['images'])
         if len(manifest['images'])!=1300 or usable<100:raise RuntimeError('Insufficient pseudo coverage or unexpected image count')
@@ -40,6 +41,7 @@ def main(a):
         args+=['--init',teacher,'--pseudo-manifest',pseudo/'manifest.json','--pseudo-weight',.25,'--pseudo-batch',2,
                '--epochs',3,'--freeze-epochs',0,'--size',640,'--batch',4,'--accum',2,
                '--lr',1e-6,'--head-lr',1e-5,'--seed',20261005,'--mixstyle','--augmentation','mild']
+        if classmix:args+=['--classmix','--barren-sampling',2.,'--pseudo-weight',.5]
         record('smoke',**summary)
         run('dino_train.py',args+['--out',smoke_out,'--smoke'],'smoke.log')
         record('training',**summary)
@@ -57,10 +59,12 @@ def main(a):
         scores={k:v['mIoU_present_nonignored'] for k,v in data['groups'].items()}
         baseline={k:v['mIoU_present_nonignored'] for k,v in base['groups'].items()}
         summary.update(scores=scores,baseline=baseline,checkpoint=str(train_out/'best.pth'))
-        if balanced:
+        if balanced or classmix:
             previous=json.loads((root/'outputs/round12_pseudo/selection.json').read_text())
             summary['round12_scores']=previous['scores']
             summary['delta_vs_round12']={k:scores[k]-previous['scores'][k] for k in scores}
+        summary['per_class_IoU']=data['groups']['all']['per_class_IoU']
+        summary['classmix']=classmix
         # This is target-domain self training. Export is a stability check, not a claimed gain.
         if scores['all']<baseline['all']-.003 or any(scores[k]<baseline[k]-.005 for k in ['brightness','contrast']):
             (results/'selection.json').write_text(json.dumps(summary,indent=2),encoding='utf-8')
@@ -79,4 +83,3 @@ if __name__=='__main__':
     p=argparse.ArgumentParser();p.add_argument('--workspace',default='.')
     p.add_argument('--class-balanced',action='store_true')
     main(p.parse_args())
-

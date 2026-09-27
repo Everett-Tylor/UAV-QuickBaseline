@@ -58,7 +58,16 @@ def train(a):
     if a.augmentation=='robust':dataset=RobustDataset(training,a.size)
     elif a.augmentation=='mixed':dataset=MixedScaleDataset(training,a.size)
     else:dataset=CropDataset(training,a.size,True,sampling='resize')
-    loader=DataLoader(dataset,batch_size=a.batch,shuffle=True,generator=g,num_workers=a.workers,pin_memory=True,worker_init_fn=seed_worker,persistent_workers=a.workers>0)
+    sampler=None
+    if a.barren_sampling>1:
+        from PIL import Image
+        fractions=[]
+        for _,mask in training:
+            with Image.open(mask) as im:fractions.append(float((np.asarray(im)==5).mean()))
+        sample_weights=[a.barren_sampling if fraction>=.01 else 1. for fraction in fractions]
+        sampler=torch.utils.data.WeightedRandomSampler(sample_weights,len(training),replacement=True,generator=g)
+        (out/'barren_sampling.json').write_text(json.dumps({'threshold':.01,'multiplier':a.barren_sampling,'eligible':sum(f>=.01 for f in fractions),'total':len(training)},indent=2))
+    loader=DataLoader(dataset,batch_size=a.batch,shuffle=sampler is None,sampler=sampler,generator=g,num_workers=a.workers,pin_memory=True,worker_init_fn=seed_worker,persistent_workers=a.workers>0)
     pseudo_loader=None
     if a.pseudo_manifest:
         from dino_pseudo import load_pseudo_pairs,digest
@@ -108,6 +117,10 @@ def train(a):
                 except StopIteration:
                     pseudo_iterator=iter(pseudo_loader);px,py=next(pseudo_iterator)
                 px,py=px.cuda(non_blocking=True),py.cuda(non_blocking=True)
+                if a.classmix:
+                    from dino_classmix import classmix
+                    count=min(len(x),len(px))
+                    px,py,_=classmix(x[:count].detach(),y[:count],px[:count],py[:count])
                 with torch.autocast('cuda',dtype=torch.bfloat16):
                     plogits=F.interpolate(model(px),size=py.shape[-2:],mode='bilinear',align_corners=False)
                     ploss=segmentation_loss(plogits,py,0.,weights)
@@ -145,5 +158,6 @@ if __name__=='__main__':
     p.add_argument('--boundary-weight',type=float,default=.1)
     p.add_argument('--pseudo-manifest');p.add_argument('--pseudo-batch',type=int,default=2)
     p.add_argument('--pseudo-weight',type=float,default=.25)
+    p.add_argument('--classmix',action='store_true')
+    p.add_argument('--barren-sampling',type=float,default=1.)
     p.add_argument('--smoke',action='store_true');train(p.parse_args())
-
