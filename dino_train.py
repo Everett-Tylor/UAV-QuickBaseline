@@ -58,6 +58,9 @@ def train(a):
     if a.augmentation=='robust':dataset=RobustDataset(training,a.size)
     elif a.augmentation=='mixed':dataset=MixedScaleDataset(training,a.size)
     else:dataset=CropDataset(training,a.size,True,sampling='resize')
+    if a.hard_manifest:
+        from barren_hard import HardDataset
+        dataset=HardDataset(training,a.size,a.hard_manifest)
     sampler=None
     if a.barren_sampling>1:
         from PIL import Image
@@ -160,4 +163,5 @@ if __name__=='__main__':
     p.add_argument('--pseudo-weight',type=float,default=.25)
     p.add_argument('--classmix',action='store_true')
     p.add_argument('--barren-sampling',type=float,default=1.)
+    p.add_argument('--hard-manifest')
     p.add_argument('--smoke',action='store_true');train(p.parse_args())

@@ -71,6 +71,13 @@ def run(a):
         if a.masks:
             y=y.cuda(non_blocking=True);valid=y!=0
             matrix=torch.bincount(9*y[valid]+pred[valid],minlength=81)
+            if getattr(a,'audit_dir',None):
+                audit=Path(a.audit_dir);audit.mkdir(parents=True,exist_ok=True)
+                target=y[0].cpu().numpy();prediction=pred[0].cpu().numpy()
+                fp=(prediction==5)&(target!=5)&(target!=0);fn=(target==5)&(prediction!=5)
+                row={'name':name,'false_positive':int(fp.sum()),'false_negative':int(fn.sum()),'confusion_matrix':matrix.cpu().reshape(9,9).tolist()}
+                with (audit/'images.jsonl').open('a') as f:f.write(json.dumps(row)+'\n')
+                Image.fromarray(prediction.astype(np.uint8)).save(audit/name)
             for group in ['all',*groups.get(name,[])]:hist[group]+=matrix;count[group]+=1
         else:Image.fromarray(pred[0].cpu().numpy().astype(np.uint8)).save(out/(Path(name).stem+'.png'))
         if i%100==0:print(f'images={i}/{len(pairs)}',flush=True)
@@ -102,5 +109,5 @@ if __name__=='__main__':
     p.add_argument('--ensemble-source')
     p.add_argument('--ensemble-architecture',choices=['dino','segformer'],default='dino')
     p.add_argument('--workers',type=int,default=4)
+    p.add_argument('--audit-dir')
     run(p.parse_args())
-
