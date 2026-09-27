@@ -59,6 +59,19 @@ def train(a):
     elif a.augmentation=='mixed':dataset=MixedScaleDataset(training,a.size)
     else:dataset=CropDataset(training,a.size,True,sampling='resize')
     loader=DataLoader(dataset,batch_size=a.batch,shuffle=True,generator=g,num_workers=a.workers,pin_memory=True,worker_init_fn=seed_worker,persistent_workers=a.workers>0)
+    pseudo_loader=None
+    if a.pseudo_manifest:
+        from dino_pseudo import load_pseudo_pairs,digest
+        pseudo_pairs,manifest=load_pseudo_pairs(a.pseudo_manifest,validation)
+        if not a.init or digest(a.init)!=manifest['teacher_sha256']:raise ValueError('Student must initialize from the pseudo teacher checkpoint')
+        labeled={p.resolve() for p,_ in training}
+        if any(p.resolve() in labeled for p,_ in pseudo_pairs):raise ValueError('Labeled image repeated as pseudo data')
+        pseudo_loader=DataLoader(CropDataset(pseudo_pairs,a.size,True,sampling='resize'),batch_size=a.pseudo_batch,
+            shuffle=True,generator=torch.Generator().manual_seed(a.seed+1),num_workers=a.workers,pin_memory=True,
+            worker_init_fn=seed_worker,persistent_workers=a.workers>0)
+        pseudo_iterator=iter(pseudo_loader)
+        (out/'pseudo_summary.json').write_text(json.dumps({'images':len(pseudo_pairs),'teacher_sha256':manifest['teacher_sha256'],
+            'confidence':manifest['confidence'],'agreement':manifest['agreement'],'pseudo_weight':a.pseudo_weight},indent=2))
     val=DataLoader(ValidationDataset(validation,a.size),batch_size=2,num_workers=a.workers,pin_memory=True,persistent_workers=a.workers>0)
     model=DinoSegmenter(a.source,config_only=bool(a.init),head_variant=a.head_variant).cuda()
     if a.init:load_dino_weights(model,torch.load(a.init,map_location='cpu',weights_only=False),allow_head_upgrade=True)
@@ -74,7 +87,7 @@ def train(a):
     optimizer=torch.optim.AdamW(groups,weight_decay=.01,foreach=False)
     best=-1.;updates=0;step=0;total=a.epochs*len(loader);start=time.time()
     for epoch in range(1,a.epochs+1):
-        frozen=epoch<=a.freeze_epochs;model.freeze_backbone(frozen);model.train();optimizer.zero_grad(set_to_none=True);loss_sum=0.
+        frozen=epoch<=a.freeze_epochs;model.freeze_backbone(frozen);model.train();optimizer.zero_grad(set_to_none=True);loss_sum=0.;pseudo_sum=0.
         for batch,(x,y) in enumerate(loader,1):
             factor=min(1.,(step+1)/100)*(.05+.95*(1-step/total)**.9)
             optimizer.param_groups[0]['lr']=0 if frozen else a.lr*factor
@@ -90,6 +103,17 @@ def train(a):
             if not torch.isfinite(loss):raise RuntimeError('Non-finite loss')
             start_group=((batch-1)//a.accum)*a.accum;divisor=min(a.accum,len(loader)-start_group)
             (loss/divisor).backward()
+            if pseudo_loader is not None:
+                try:px,py=next(pseudo_iterator)
+                except StopIteration:
+                    pseudo_iterator=iter(pseudo_loader);px,py=next(pseudo_iterator)
+                px,py=px.cuda(non_blocking=True),py.cuda(non_blocking=True)
+                with torch.autocast('cuda',dtype=torch.bfloat16):
+                    plogits=F.interpolate(model(px),size=py.shape[-2:],mode='bilinear',align_corners=False)
+                    ploss=segmentation_loss(plogits,py,0.,weights)
+                if not torch.isfinite(ploss):raise RuntimeError('Non-finite pseudo loss')
+                ramp=min(1.,(step+1)/len(loader))
+                (a.pseudo_weight*ramp*ploss/divisor).backward();pseudo_sum+=ploss.item()
             if batch%a.accum==0 or batch==len(loader):
                 norm=torch.nn.utils.clip_grad_norm_(model.parameters(),1.)
                 if not torch.isfinite(norm):raise RuntimeError('Non-finite gradients')
@@ -100,7 +124,7 @@ def train(a):
                 with torch.no_grad(),torch.autocast('cuda',dtype=torch.bfloat16):assert torch.isfinite(ema(x)).all()
                 print('SMOKE_OK',flush=True);return
         metrics=evaluate(ema,val)
-        row={'epoch':epoch,'frozen_backbone':frozen,'loss':loss_sum/len(loader),'elapsed_seconds':time.time()-start,**metrics}
+        row={'epoch':epoch,'frozen_backbone':frozen,'loss':loss_sum/len(loader),'pseudo_loss':pseudo_sum/len(loader),'elapsed_seconds':time.time()-start,**metrics}
         with (out/'history.jsonl').open('a') as f:f.write(json.dumps(row)+'\n')
         print(json.dumps(row),flush=True)
         state={'model':ema.state_dict(),'epoch':epoch,'metrics':metrics,'config':vars(a),'split':split,'ema_updates':updates,'architecture':'dinov3_'+a.head_variant}
@@ -119,5 +143,7 @@ if __name__=='__main__':
     p.add_argument('--head-variant',choices=['pyramid','context_boundary'],default='pyramid')
     p.add_argument('--new-head-lr',type=float,default=2e-4)
     p.add_argument('--boundary-weight',type=float,default=.1)
+    p.add_argument('--pseudo-manifest');p.add_argument('--pseudo-batch',type=int,default=2)
+    p.add_argument('--pseudo-weight',type=float,default=.25)
     p.add_argument('--smoke',action='store_true');train(p.parse_args())
 
