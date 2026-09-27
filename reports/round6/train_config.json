@@ -1,0 +1,20 @@
+{
+  "images": "data/train_images",
+  "masks": "data/train_masks",
+  "split": "reports/round2/split.json",
+  "class_balance": "reports/round2/class_balance.json",
+  "source": "round2_model",
+  "init": "runs/round5_mild768/best.pth",
+  "out": "runs/round6_balanced768",
+  "mask_counts": "runs/round6_train_counts.json",
+  "profiles": "runs/round3_audit/image_profiles.json",
+  "epochs": 4,
+  "size": 768,
+  "batch": 4,
+  "accum": 2,
+  "workers": 4,
+  "seed": 20260926,
+  "mild": false,
+  "lr": 6e-06,
+  "smoke": false
+}

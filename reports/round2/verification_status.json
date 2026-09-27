@@ -1,0 +1,11 @@
+{
+  "gpu_forward_check": "passed",
+  "fixed_700_validation": "exact match with original metrics",
+  "miou": 0.7421653476999501,
+  "two_step_training_smoke": "passed",
+  "model_parts_restore": "SHA-256 verified",
+  "pdf_pages": 6,
+  "pdf_visual_review": "passed",
+  "docker_build": "not run: Docker unavailable",
+  "docker_image_tar": "not generated"
+}

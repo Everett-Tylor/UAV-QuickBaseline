@@ -1,0 +1,40 @@
+{
+  "model_count": 1,
+  "architecture": "DINOv3 ViT-B/16 pyramid segmenter",
+  "checkpoint": "runs/round7_dino768/best.pth",
+  "checkpoint_sha256": "7c216b92a09b828be08a7881d7737906f06dfe991ffbc712a88e54be308feddf",
+  "epoch": 4,
+  "train_images": 6296,
+  "validation_images": 700,
+  "test_images": 1300,
+  "test_used_for_training": false,
+  "extra_training_data_used": false,
+  "sizes": [
+    768,
+    896,
+    1024,
+    1152
+  ],
+  "hflip": true,
+  "model_ensemble": false,
+  "local_validation": {
+    "all": 0.78210142289744,
+    "brightness": 0.7191701860168725,
+    "contrast": 0.744135340265545
+  },
+  "former_two_model_local_mIoU": 0.783380104456459,
+  "former_two_model_official_user_reported": 69.88,
+  "former_two_model_disallowed_by_rule": true,
+  "current_official_score": null,
+  "prediction_zip": "submission_round7_single_model.zip",
+  "prediction_zip_sha256": "6015db2f86de16779d115620c9f4ddb8186a6153a9746bd027edf378961d366c",
+  "prediction_zip_bytes": 13021552,
+  "prediction_validation": {
+    "count": 1300,
+    "root_png": true,
+    "crc_ok": true,
+    "mode": "L",
+    "class_ids": "0-8",
+    "image_names_and_sizes_match_test": true
+  }
+}

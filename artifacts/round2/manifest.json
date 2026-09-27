@@ -1,0 +1,73 @@
+{
+  "files": [
+    {
+      "path": "artifacts/round2/submission_round2_1300.zip",
+      "bytes": 13223506,
+      "sha256": "153dfeda501f9e1081696e7bed67f7abf37b74af9f3935be0b58cfc227d090df",
+      "git_blob_sha": "8e893881b30ad2bddd59c24783c74435b1b4d5b4"
+    },
+    {
+      "path": "artifacts/round2/round2_source_and_reports.zip",
+      "bytes": 96598,
+      "sha256": "c559a320cd5f0eece392efa23663093a68025443e1c7d5338418b4cf56515ee2",
+      "git_blob_sha": "1cd9e86329acd5ae4ca245ae34c3e2cec565640e"
+    },
+    {
+      "path": "artifacts/round2/round2_model.zip.part01",
+      "bytes": 8257536,
+      "sha256": "9fd09cb2d42010a310a8f505b1354059ab517f3290d76cc4de06f4ff2147204f",
+      "git_blob_sha": "5b05ed07cf168b682fa8a34c7596fdc02a011db5"
+    },
+    {
+      "path": "artifacts/round2/round2_model.zip.part02",
+      "bytes": 8257536,
+      "sha256": "fe12b948a27651ed6298e1555b355eedbc1f9371304baf7a94542da69d4225a7",
+      "git_blob_sha": "4a3dfd6825280794d77b6703007c5c3d10e418c0"
+    },
+    {
+      "path": "artifacts/round2/round2_model.zip.part03",
+      "bytes": 8257536,
+      "sha256": "d053b5e875af5099a2a7b23102e166bbda5752dff067d8114e5d3c961676484a",
+      "git_blob_sha": "b074392d79e759e6a81677fb25288fd0b2d8c12c"
+    },
+    {
+      "path": "artifacts/round2/round2_model.zip.part04",
+      "bytes": 8257536,
+      "sha256": "4fd1b623f405e9051eceead74625c3457f69c441597c061f8092543254608cd3",
+      "git_blob_sha": "ff114259cbfae14f5a67038fee1d20f486e078ca"
+    },
+    {
+      "path": "artifacts/round2/round2_model.zip.part05",
+      "bytes": 8257536,
+      "sha256": "7c2afd74674431d708dcbff8f0d8905e66cf21334e5f3f86da8b14853a725b90",
+      "git_blob_sha": "1985ea6a1bb24dcf744328905f59158b6312c4c1"
+    },
+    {
+      "path": "artifacts/round2/round2_model.zip.part06",
+      "bytes": 8257536,
+      "sha256": "03c020f6c51514789f137eff06b225b78785df8d09d7fa2b678c39f80a407458",
+      "git_blob_sha": "efa892416884d69b9954364109bc667e793979ef"
+    },
+    {
+      "path": "artifacts/round2/round2_model.zip.part07",
+      "bytes": 1252748,
+      "sha256": "dd3054d1998dcaa83d49fa8e0841a50b28aa2d374a4414bfa5b191a6cbaff3d4",
+      "git_blob_sha": "ba1d3ee38e6d1ba36cefe9f61a17fd46fc6d8d93"
+    }
+  ],
+  "reconstructed_model": {
+    "path": "artifacts/round2/round2_model.zip",
+    "bytes": 50797964,
+    "sha256": "b2c5316650c7811b42c79190a55f54dd2f79223e25668c7c65bb2ad7f71c0763",
+    "git_blob_sha": "fb1217d4f3ec1ce6c31b207cc2608c112c467e7d",
+    "reconstruct_from": [
+      "artifacts/round2/round2_model.zip.part01",
+      "artifacts/round2/round2_model.zip.part02",
+      "artifacts/round2/round2_model.zip.part03",
+      "artifacts/round2/round2_model.zip.part04",
+      "artifacts/round2/round2_model.zip.part05",
+      "artifacts/round2/round2_model.zip.part06",
+      "artifacts/round2/round2_model.zip.part07"
+    ]
+  }
+}

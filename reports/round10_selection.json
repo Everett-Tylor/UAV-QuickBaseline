@@ -1,0 +1,30 @@
+{
+  "baseline": {
+    "all": 0.7838392685042884,
+    "brightness": 0.7182860788556863,
+    "contrast": 0.745958701288669
+  },
+  "candidates": [
+    {
+      "name": "robust640",
+      "checkpoint": "C:\\Users\\10509\\Documents\\Codex\\2026-09-20\\github-plugin-github-openai-curated-remote\\outputs\\runs\\round10_dino_robust640\\best.pth",
+      "scores": {
+        "all": 0.7841157214158992,
+        "brightness": 0.7172073733958144,
+        "contrast": 0.7469131889741389
+      }
+    },
+    {
+      "name": "mixed768",
+      "checkpoint": "C:\\Users\\10509\\Documents\\Codex\\2026-09-20\\github-plugin-github-openai-curated-remote\\outputs\\runs\\round10_dino_mixed768\\best.pth",
+      "scores": {
+        "all": 0.7824964341943029,
+        "brightness": 0.7134539122609438,
+        "contrast": 0.7467686605882435
+      }
+    }
+  ],
+  "official_previous": 68.45,
+  "official_current": null,
+  "single_checkpoint": true
+}

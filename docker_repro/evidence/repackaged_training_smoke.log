@@ -1,0 +1,5 @@
+
+Loading weights:   0%|          | 0/208 [00:00<?, ?it/s]
+Loading weights: 100%|��������������������| 208/208 [00:00<00:00, 4262.34it/s]
+epoch=1/6 batch=1/787 loss=2.6836 elapsed=65s peakGB=2.10
+SMOKE_OK
