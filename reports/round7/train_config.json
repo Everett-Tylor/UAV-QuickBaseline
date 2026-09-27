@@ -1,0 +1,19 @@
+{
+  "images": "data/train_images",
+  "masks": "data/train_masks",
+  "source": "model_configs/dinov3",
+  "out": "runs/round7_dino768",
+  "split": "reports/round2/split.json",
+  "class_balance": "reports/round2/class_balance.json",
+  "init": "runs/round6_dino640/best.pth",
+  "epochs": 4,
+  "freeze_epochs": 0,
+  "size": 768,
+  "batch": 4,
+  "accum": 2,
+  "workers": 4,
+  "seed": 20260929,
+  "lr": 2e-06,
+  "head_lr": 3e-05,
+  "smoke": false
+}

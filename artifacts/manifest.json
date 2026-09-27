@@ -1,0 +1,20 @@
+[
+  {
+    "path": "artifacts/best_optimized.pth",
+    "bytes": 4547789,
+    "sha256": "ef3e6e733e1dd5a4e72c960729bdf23ce10ab9e6099085c2521bb78e32a16526",
+    "git_blob_sha": "daa724d60cbd053c8f0c871e66732b246f527584"
+  },
+  {
+    "path": "artifacts/submission_optimized.zip",
+    "bytes": 8906191,
+    "sha256": "39d91d0230786df344cefc88f487fc7901ea429fd61e8ee0bb555cd8a09efa07",
+    "git_blob_sha": "b37d449f60f8f3607b54e5ce511de7518f359765"
+  },
+  {
+    "path": "artifacts/UAV-QuickBaseline_optimized_source.zip",
+    "bytes": 20595,
+    "sha256": "d018f6741b78a25664e49502a42ecc1f318fc08414ced7288c07307e98031166",
+    "git_blob_sha": "0cb24ba8ac2c08f5ba9b2650419ded5b3867f8a2"
+  }
+]

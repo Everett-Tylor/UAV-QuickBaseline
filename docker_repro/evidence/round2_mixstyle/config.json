@@ -1,0 +1,18 @@
+{
+  "images": "C:/Users/10509/Downloads/\u65e0\u4eba\u673a\u8bed\u4e49\u5206\u5272_\u7d27\u6025Baseline\u6e90\u7801/UAV_QuickBaseline/data/train_images",
+  "masks": "C:/Users/10509/Downloads/\u65e0\u4eba\u673a\u8bed\u4e49\u5206\u5272_\u7d27\u6025Baseline\u6e90\u7801/UAV_QuickBaseline/data/train_masks",
+  "split": "outputs/runs/balanced_finetune/split.json",
+  "class_balance": "outputs/runs/balanced_finetune/class_balance.json",
+  "source": "work/mit_b1_initial",
+  "out": "outputs/runs/round2_mixstyle",
+  "init": "outputs/runs/round2_segformer_base/best.pth",
+  "epochs": 2,
+  "size": 384,
+  "batch": 8,
+  "accum": 1,
+  "workers": 4,
+  "seed": 2027,
+  "lr": 2e-05,
+  "mixstyle": 0.2,
+  "smoke": false
+}
