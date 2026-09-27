@@ -15,6 +15,24 @@ from improvedseg import tensor_image, metrics_from_hist, paired_paths, split_pai
 from quickseg import images
 
 
+@torch.inference_mode()
+def probabilities(model, rgb, sizes, hflip, device):
+    shape = (rgb.height, rgb.width)
+    total = None
+    for size in sizes:
+        x = tensor_image(rgb.resize((size, size), Image.Resampling.BILINEAR))[None].to(device)
+        for flip in ([False, True] if hflip else [False]):
+            with torch.autocast(device, dtype=torch.bfloat16, enabled=device == 'cuda' and torch.cuda.is_bf16_supported()):
+                logits = model(x.flip(-1) if flip else x)
+            if not torch.isfinite(logits).all():
+                raise RuntimeError('Non-finite prediction logits')
+            if flip:
+                logits = logits.flip(-1)
+            probs = F.interpolate(logits.float(), size=shape, mode='bilinear', align_corners=False).softmax(1)
+            total = probs if total is None else total + probs
+    return total
+
+
 def validate_archive(archive, paths):
     expected = {p.stem + '.png' for p in paths}
     if not paths or len(expected) != len(paths):
@@ -66,18 +84,12 @@ def run(a):
         shape = (rgb.height, rgb.width)
         if not a.masks and shape != (1024, 1024):
             raise ValueError(f'Expected 1024x1024 official test image: {path}')
-        total = None
-        for size in a.sizes:
-            x = tensor_image(rgb.resize((size, size), Image.Resampling.BILINEAR))[None].to(device)
-            for flip in ([False, True] if a.hflip else [False]):
-                with torch.autocast(device, dtype=torch.bfloat16, enabled=device == 'cuda' and torch.cuda.is_bf16_supported()):
-                    logits = model(x.flip(-1) if flip else x)
-                if not torch.isfinite(logits).all():
-                    raise RuntimeError('Non-finite prediction logits')
-                if flip:
-                    logits = logits.flip(-1)
-                probs = F.interpolate(logits.float(), size=shape, mode='bilinear', align_corners=False).softmax(1)
-                total = probs if total is None else total + probs
+        total = probabilities(model, rgb, a.sizes, a.hflip, device)
+        if getattr(a, 'class_scales', None):
+            scales = torch.tensor(a.class_scales, device=device)
+            if scales.shape != (9,) or not torch.isfinite(scales).all() or not (scales > 0).all():
+                raise ValueError('Expected nine positive finite class scales')
+            total = total * scales[None, :, None, None]
         pred = total.argmax(1)[0].cpu()
         if mask is not None:
             with Image.open(mask) as im:
@@ -93,7 +105,8 @@ def run(a):
         if index == 1 or index % 100 == 0:
             print(f'images={index}/{len(pairs)}', flush=True)
     report = {'checkpoint': str(a.checkpoint), 'single_checkpoint': True,
-              'sizes': a.sizes, 'hflip': a.hflip, 'official_score': None}
+              'sizes': a.sizes, 'hflip': a.hflip, 'official_score': None,
+              'class_scales': getattr(a, 'class_scales', None)}
     if a.masks:
         report.update(metrics_from_hist(hist.reshape(9, 9)))
         if report['mIoU_present_nonignored'] is None:
@@ -125,4 +138,5 @@ if __name__ == '__main__':
     p.add_argument('--hflip', action='store_true')
     p.add_argument('--masks')
     p.add_argument('--split')
+    p.add_argument('--class-scales', type=float, nargs=9)
     run(p.parse_args())

@@ -7,7 +7,7 @@ from torch.nn import functional as F
 from torch.utils.data import DataLoader
 from b2_model import Segmenter
 from round2seg import ValidationDataset, evaluate
-from round4_train import update_ema, lovasz_softmax
+from round4_train import update_ema, lovasz_softmax, RobustDataset
 from improvedseg import CropDataset, paired_paths, split_pairs, seed_worker, segmentation_loss
 
 
@@ -54,7 +54,13 @@ def train(a):
     weights = torch.tensor(json.loads(Path(a.class_balance).read_text())['weights'], device='cuda')
     if weights.shape != (9,) or not torch.isfinite(weights).all() or not (weights[1:] > 0).all():
         raise ValueError('Expected nine finite class weights, foreground weights positive')
-    loader = DataLoader(CropDataset(training, a.size, True, sampling='resize'),
+    if not 0 < a.class_weight_power <= 1:
+        raise ValueError('class-weight-power must be in (0,1]')
+    weights = weights.pow(a.class_weight_power)
+    (out/'class_balance_used.json').write_text(json.dumps({'weights': weights.cpu().tolist(),
+        'class_weight_power': a.class_weight_power}, indent=2), encoding='utf-8')
+    dataset = RobustDataset(training, a.size) if a.robust else CropDataset(training, a.size, True, sampling='resize')
+    loader = DataLoader(dataset,
         batch_size=a.batch, shuffle=True, generator=torch.Generator().manual_seed(a.seed),
         num_workers=a.workers, pin_memory=True, worker_init_fn=seed_worker,
         persistent_workers=a.workers > 0)
@@ -114,4 +120,6 @@ if __name__ == '__main__':
     p.add_argument('--lr', type=float, default=1e-5)
     p.add_argument('--head-lr', type=float, default=1e-4)
     p.add_argument('--smoke', action='store_true')
+    p.add_argument('--robust', action='store_true', help='Random scale/crop, color and gamma augmentation')
+    p.add_argument('--class-weight-power', type=float, default=1., help='Temper rare-class CE weighting')
     train(p.parse_args())

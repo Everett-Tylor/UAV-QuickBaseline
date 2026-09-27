@@ -1,0 +1,43 @@
+{
+  "baseline_miou": 0.7493715262057201,
+  "selected_strength": 0.5,
+  "selected_scales": [
+    1.0,
+    1.2238286494766795,
+    1.0992317347475762,
+    0.9189519348722744,
+    0.8411870485872666,
+    0.6212811078149529,
+    1.2322271040479047,
+    0.8673129925234241,
+    0.5001119154822581
+  ],
+  "approved": true,
+  "groups": {
+    "calibration": {
+      "baseline": 0.7484995555787946,
+      "calibrated": 0.7541917716620286
+    },
+    "confirmation": {
+      "baseline": 0.7494560333169624,
+      "calibrated": 0.7551389693145312
+    },
+    "all": {
+      "baseline": 0.7493715262057201,
+      "calibrated": 0.7550018510808988
+    }
+  },
+  "per_class_IoU": {
+    "1": 0.6776962027521115,
+    "2": 0.8246809227957502,
+    "3": 0.7892948745225182,
+    "4": 0.8723928612452249,
+    "5": 0.5169908498921749,
+    "6": 0.8651623296121561,
+    "7": 0.7376024030672315,
+    "8": 0.7561943647600232
+  },
+  "official_score": null,
+  "further_training_status": "pending",
+  "tests": "3 original regression tests, 3 calibration-gate tests, and real robust640 tempered-weight GPU backward/EMA smoke passed"
+}
