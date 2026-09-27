@@ -8,7 +8,16 @@ from torch.utils.data import DataLoader
 from dinoseg import DinoSegmenter
 from improvedseg import CropDataset,paired_paths,split_pairs,seed_worker,segmentation_loss,metrics_from_hist
 from round2seg import ValidationDataset
-from round4_train import lovasz_softmax,update_ema
+from round4_train import lovasz_softmax,update_ema,RobustDataset
+
+class MixedScaleDataset(torch.utils.data.Dataset):
+    """Keep scene context in half the samples and native-scale detail in the rest."""
+    def __init__(self,pairs,size):
+        self.full=CropDataset(pairs,size,True,sampling='resize')
+        self.crop=CropDataset(pairs,size,True,sampling='crop')
+    def __len__(self):return len(self.full)
+    def __getitem__(self,index):
+        return (self.crop if random.random()<.5 else self.full)[index]
 
 @torch.inference_mode()
 def evaluate(model,loader):
@@ -30,7 +39,10 @@ def train(a):
     (out/'config.json').write_text(json.dumps(vars(a),indent=2));(out/'split.json').write_text(json.dumps(split))
     weights=torch.tensor(json.loads(Path(a.class_balance).read_text())['weights'],device='cuda')
     g=torch.Generator().manual_seed(a.seed)
-    loader=DataLoader(CropDataset(training,a.size,True,sampling='resize'),batch_size=a.batch,shuffle=True,generator=g,num_workers=a.workers,pin_memory=True,worker_init_fn=seed_worker,persistent_workers=a.workers>0)
+    if a.augmentation=='robust':dataset=RobustDataset(training,a.size)
+    elif a.augmentation=='mixed':dataset=MixedScaleDataset(training,a.size)
+    else:dataset=CropDataset(training,a.size,True,sampling='resize')
+    loader=DataLoader(dataset,batch_size=a.batch,shuffle=True,generator=g,num_workers=a.workers,pin_memory=True,worker_init_fn=seed_worker,persistent_workers=a.workers>0)
     val=DataLoader(ValidationDataset(validation,a.size),batch_size=2,num_workers=a.workers,pin_memory=True,persistent_workers=a.workers>0)
     model=DinoSegmenter(a.source,config_only=bool(a.init)).cuda()
     if a.init:model.load_state_dict(torch.load(a.init,map_location='cpu',weights_only=False)['model'])
@@ -79,4 +91,6 @@ if __name__=='__main__':
     p.add_argument('--workers',type=int,default=4);p.add_argument('--seed',type=int,default=20260927)
     p.add_argument('--lr',type=float,default=1e-5);p.add_argument('--head-lr',type=float,default=3e-4)
     p.add_argument('--mixstyle',action='store_true')
+    p.add_argument('--augmentation',choices=['mild','robust','mixed'],default='mild')
     p.add_argument('--smoke',action='store_true');train(p.parse_args())
+
