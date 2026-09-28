@@ -52,6 +52,9 @@ def train(a):
     out=Path(a.out);out.mkdir(parents=True,exist_ok=True)
     if (out/'history.jsonl').exists():raise ValueError('Use a fresh run directory')
     training,validation,split=split_pairs(paired_paths(a),a.split,.1,a.seed)
+    if a.full_data:
+        training=training+validation;validation=[]
+        split={'train':[p.name for p,_ in training],'val':[],'mode':'full_data_no_holdout'}
     (out/'config.json').write_text(json.dumps(vars(a),indent=2));(out/'split.json').write_text(json.dumps(split))
     weights=torch.tensor(json.loads(Path(a.class_balance).read_text())['weights'],device='cuda')
     g=torch.Generator().manual_seed(a.seed)
@@ -139,12 +142,14 @@ def train(a):
             if a.smoke and batch==2:
                 with torch.no_grad(),torch.autocast('cuda',dtype=torch.bfloat16):assert torch.isfinite(ema(x)).all()
                 print('SMOKE_OK',flush=True);return
-        metrics=evaluate(ema,val)
+        metrics={} if a.full_data else evaluate(ema,val)
         row={'epoch':epoch,'frozen_backbone':frozen,'loss':loss_sum/len(loader),'pseudo_loss':pseudo_sum/len(loader),'elapsed_seconds':time.time()-start,**metrics}
         with (out/'history.jsonl').open('a') as f:f.write(json.dumps(row)+'\n')
         print(json.dumps(row),flush=True)
         state={'model':ema.state_dict(),'epoch':epoch,'metrics':metrics,'config':vars(a),'split':split,'ema_updates':updates,'architecture':'dinov3_'+a.head_variant}
-        if metrics['mIoU_present_nonignored']>best:best=metrics['mIoU_present_nonignored'];torch.save(state,out/'best.pth')
+        if a.full_data:
+            if epoch==a.epochs:torch.save(state,out/'final.pth')
+        elif metrics['mIoU_present_nonignored']>best:best=metrics['mIoU_present_nonignored'];torch.save(state,out/'best.pth')
         torch.save({**state,'student':model.state_dict(),'optimizer':optimizer.state_dict()},out/'last.pth')
 
 if __name__=='__main__':
@@ -164,4 +169,5 @@ if __name__=='__main__':
     p.add_argument('--classmix',action='store_true')
     p.add_argument('--barren-sampling',type=float,default=1.)
     p.add_argument('--hard-manifest')
+    p.add_argument('--full-data',action='store_true')
     p.add_argument('--smoke',action='store_true');train(p.parse_args())
