@@ -1,0 +1,22 @@
+{
+  "png_count": 1300,
+  "dimensions": [
+    1024,
+    1024
+  ],
+  "mode": "L",
+  "all_member_crc_checks_passed": true,
+  "class_pixel_counts": [
+    0,
+    407383518,
+    247905323,
+    98988546,
+    121688952,
+    24547679,
+    317559679,
+    136795688,
+    8279415
+  ],
+  "zip_bytes": 12089671,
+  "sha256": "24ea887b35876566b48fab5474d263efed1875ec9d75548b651cd7be8ebf8d16"
+}
