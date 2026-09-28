@@ -87,14 +87,14 @@ def train(a):
         pseudo_iterator=iter(pseudo_loader)
         (out/'pseudo_summary.json').write_text(json.dumps({'images':len(pseudo_pairs),'teacher_sha256':manifest['teacher_sha256'],
             'confidence':manifest['confidence'],'agreement':manifest['agreement'],'pseudo_weight':a.pseudo_weight},indent=2))
-    val=DataLoader(ValidationDataset(validation,a.size),batch_size=2,num_workers=a.workers,pin_memory=True,persistent_workers=a.workers>0)
+    val=DataLoader(ValidationDataset(validation,a.size),batch_size=1 if a.head_variant=='global_local' else 2,num_workers=a.workers,pin_memory=True,persistent_workers=a.workers>0)
     model=DinoSegmenter(a.source,config_only=bool(a.init),head_variant=a.head_variant).cuda()
     if a.init:load_dino_weights(model,torch.load(a.init,map_location='cpu',weights_only=False),allow_head_upgrade=True)
     model.mixstyle_enabled=a.mixstyle
     model.backbone.gradient_checkpointing_enable(gradient_checkpointing_kwargs={'use_reentrant':False})
     ema=copy.deepcopy(model).eval().requires_grad_(False)
     backbone=list(model.backbone.parameters());ids={id(p) for p in backbone}
-    added=[p for name,p in model.named_parameters() if name.startswith(('context_adapter.','detail_adapter.','boundary_head.'))]
+    added=[p for name,p in model.named_parameters() if name.startswith(('context_adapter.','detail_adapter.','boundary_head.','spatial_fusion.'))]
     added_ids={id(p) for p in added}
     decoder=[p for p in model.parameters() if id(p) not in ids and id(p) not in added_ids]
     groups=[{'params':backbone,'lr':a.lr},{'params':decoder,'lr':a.head_lr}]
@@ -165,7 +165,7 @@ if __name__=='__main__':
     p.add_argument('--lr',type=float,default=1e-5);p.add_argument('--head-lr',type=float,default=3e-4)
     p.add_argument('--mixstyle',action='store_true')
     p.add_argument('--augmentation',choices=['mild','robust','mixed'],default='mild')
-    p.add_argument('--head-variant',choices=['pyramid','context_boundary'],default='pyramid')
+    p.add_argument('--head-variant',choices=['pyramid','context_boundary','global_local'],default='pyramid')
     p.add_argument('--new-head-lr',type=float,default=2e-4)
     p.add_argument('--boundary-weight',type=float,default=.1)
     p.add_argument('--pseudo-manifest');p.add_argument('--pseudo-batch',type=int,default=2)

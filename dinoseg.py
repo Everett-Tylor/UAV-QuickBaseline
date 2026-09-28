@@ -54,8 +54,11 @@ class DinoSegmenter(nn.Module):
         self.frozen_backbone=False
         self.mixstyle=MixStyle()
         self.mixstyle_enabled=False
-        if head_variant not in ('pyramid','context_boundary'):raise ValueError(head_variant)
+        if head_variant not in ('pyramid','context_boundary','global_local'):raise ValueError(head_variant)
         self.head_variant=head_variant
+        if head_variant=='global_local':
+            self.spatial_fusion=nn.Sequential(nn.Conv2d(320,64,1,bias=False),nn.GroupNorm(8,64),nn.GELU(),nn.Conv2d(64,9,1))
+            nn.init.zeros_(self.spatial_fusion[-1].weight);nn.init.zeros_(self.spatial_fusion[-1].bias)
         if head_variant=='context_boundary':
             self.context_adapter=ContextAdapter()
             self.detail_adapter=nn.Sequential(conv(160,64),nn.Conv2d(64,160,1))
@@ -73,6 +76,25 @@ class DinoSegmenter(nn.Module):
         return self
 
     def forward(self,x,return_aux=False,return_features=False):
+        if self.head_variant!='global_local':return self._single(x,return_aux,return_features)
+        if x.shape[-2:]!=(1024,1024):raise ValueError('Global-local input must be1024x1024')
+        low=F.interpolate(x,size=(640,640),mode='bilinear',align_corners=False,antialias=True)
+        logits,context=self._single(low,return_features=True)
+        tiles=[]
+        for top in [0,512]:
+            row=[]
+            for left in [0,512]:
+                _,feature=self._single(x[:,:,top:top+512,left:left+512],return_features=True)
+                row.append(feature)
+            tiles.append(torch.cat(row,dim=3))
+        detail=torch.cat(tiles,dim=2)
+        context=F.interpolate(context,size=detail.shape[-2:],mode='bilinear',align_corners=False)
+        residual=self.spatial_fusion(torch.cat([context,detail],dim=1))
+        result=F.interpolate(logits,size=detail.shape[-2:],mode='bilinear',align_corners=False)+residual
+        if return_aux:raise ValueError('No boundary head')
+        return (result,context) if return_features else result
+
+    def _single(self,x,return_aux=False,return_features=False):
         h,w=x.shape[-2:]
         if h%32 or w%32:raise ValueError('Input dimensions must be divisible by 32')
         normalized=(x-self.mean)/self.std
@@ -106,9 +128,9 @@ class DinoSegmenter(nn.Module):
 
 def load_dino_weights(model,state,allow_head_upgrade=False):
     old_variant=state.get('config',{}).get('head_variant','pyramid')
-    if allow_head_upgrade and old_variant=='pyramid' and model.head_variant=='context_boundary':
+    if allow_head_upgrade and old_variant=='pyramid' and model.head_variant in ('context_boundary','global_local'):
         missing,unexpected=model.load_state_dict(state['model'],strict=False)
-        added=('context_adapter.','detail_adapter.','boundary_head.')
+        added=('spatial_fusion.',) if model.head_variant=='global_local' else ('context_adapter.','detail_adapter.','boundary_head.')
         expected={k for k in model.state_dict() if k.startswith(added)}
         if set(missing)!=expected or unexpected:raise RuntimeError(f'Invalid head upgrade: {missing}, {unexpected}')
     else:
