@@ -110,11 +110,15 @@ def train(a):
             if added:optimizer.param_groups[2]['lr']=a.new_head_lr*factor
             x,y=x.cuda(non_blocking=True),y.cuda(non_blocking=True)
             with torch.autocast('cuda',dtype=torch.bfloat16):
-                if a.head_variant=='context_boundary':raw,edges=model(x,return_aux=True)
+                if a.contrast_weight>0:raw,features=model(x,return_features=True)
+                elif a.head_variant=='context_boundary':raw,edges=model(x,return_aux=True)
                 else:raw=model(x)
                 logits=F.interpolate(raw,size=y.shape[-2:],mode='bilinear',align_corners=False)
                 loss=segmentation_loss(logits,y,.5,weights)+.3*lovasz_softmax(logits,y)
                 if a.head_variant=='context_boundary':loss=loss+a.boundary_weight*boundary_loss(edges,y)
+                if a.contrast_weight>0:
+                    from barren_contrast import regional_contrast
+                    loss=loss+a.contrast_weight*min(1.,(step+1)/len(loader))*regional_contrast(features,y,raw)
             if not torch.isfinite(loss):raise RuntimeError('Non-finite loss')
             start_group=((batch-1)//a.accum)*a.accum;divisor=min(a.accum,len(loader)-start_group)
             (loss/divisor).backward()
@@ -170,4 +174,5 @@ if __name__=='__main__':
     p.add_argument('--barren-sampling',type=float,default=1.)
     p.add_argument('--hard-manifest')
     p.add_argument('--full-data',action='store_true')
+    p.add_argument('--contrast-weight',type=float,default=0.)
     p.add_argument('--smoke',action='store_true');train(p.parse_args())

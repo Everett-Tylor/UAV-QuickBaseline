@@ -72,7 +72,7 @@ class DinoSegmenter(nn.Module):
         if self.frozen_backbone:self.backbone.eval()
         return self
 
-    def forward(self,x,return_aux=False):
+    def forward(self,x,return_aux=False,return_features=False):
         h,w=x.shape[-2:]
         if h%32 or w%32:raise ValueError('Input dimensions must be divisible by 32')
         normalized=(x-self.mean)/self.std
@@ -98,6 +98,7 @@ class DinoSegmenter(nn.Module):
         joint=torch.cat([fused,detail],dim=1)
         if self.head_variant=='context_boundary':joint=joint+self.detail_adapter(joint)
         logits=self.classifier(joint)
+        if return_features:return logits,joint
         if return_aux:
             if self.head_variant!='context_boundary':raise ValueError('Boundary head is not enabled')
             return logits,self.boundary_head(joint)
@@ -113,4 +114,3 @@ def load_dino_weights(model,state,allow_head_upgrade=False):
     else:
         if old_variant!=model.head_variant:raise ValueError('Checkpoint architecture mismatch')
         model.load_state_dict(state['model'],strict=True)
-
