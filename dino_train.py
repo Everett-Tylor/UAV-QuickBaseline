@@ -19,6 +19,19 @@ class MixedScaleDataset(torch.utils.data.Dataset):
     def __getitem__(self,index):
         return (self.crop if random.random()<.5 else self.full)[index]
 
+def bare_focus_loss(logits,target):
+    """Penalize bare-ground false alarms on labeled background and retain bare detail."""
+    p=logits.float().softmax(1)[:,5]
+    valid=target!=0
+    background=target==1
+    bare=target==5
+    zero=logits.float().sum()*0
+    false_alarm=p[background].square().mean() if background.any() else zero
+    if bare.any():
+        overlap=(2*(p*bare).sum()+1e-6)/(p[valid].sum()+bare.sum()+1e-6)
+        return .2*false_alarm+.1*(1-overlap)
+    return .2*false_alarm
+
 def boundary_loss(logits,target):
     valid=target!=0
     edge=torch.zeros_like(valid)
@@ -66,15 +79,23 @@ def train(a):
         if not a.init or digest(a.init)!=manifest['teacher_sha256']:raise ValueError('Student must initialize from the pseudo teacher checkpoint')
         labeled={p.resolve() for p,_ in training}
         if any(p.resolve() in labeled for p,_ in pseudo_pairs):raise ValueError('Labeled image repeated as pseudo data')
+        pseudo_sampler=None
+        if a.focus_bare:
+            usable=[r for r in manifest['images'] if r['coverage']>=manifest['min_coverage']]
+            sample_weights=[1.5 if r.get('retained_bare_pixels',0)>=1000 else 1. for r in usable]
+            pseudo_sampler=torch.utils.data.WeightedRandomSampler(sample_weights,len(usable),replacement=True,
+                generator=torch.Generator().manual_seed(a.seed+1))
+            (out/'bare_sampling.json').write_text(json.dumps({'bare_bearing_pseudo_images':sum(w>1 for w in sample_weights),
+                'pseudo_images':len(sample_weights),'bare_bearing_multiplier':1.5},indent=2))
         pseudo_loader=DataLoader(CropDataset(pseudo_pairs,a.size,True,sampling='resize'),batch_size=a.pseudo_batch,
-            shuffle=True,generator=torch.Generator().manual_seed(a.seed+1),num_workers=a.workers,pin_memory=True,
+            shuffle=pseudo_sampler is None,sampler=pseudo_sampler,generator=torch.Generator().manual_seed(a.seed+1),num_workers=a.workers,pin_memory=True,
             worker_init_fn=seed_worker,persistent_workers=a.workers>0)
         pseudo_iterator=iter(pseudo_loader)
         (out/'pseudo_summary.json').write_text(json.dumps({'images':len(pseudo_pairs),'teacher_sha256':manifest['teacher_sha256'],
             'confidence':manifest['confidence'],'agreement':manifest['agreement'],'pseudo_weight':a.pseudo_weight},indent=2))
     val=DataLoader(ValidationDataset(validation,a.size),batch_size=2,num_workers=a.workers,pin_memory=True,persistent_workers=a.workers>0)
     model=DinoSegmenter(a.source,config_only=bool(a.init),head_variant=a.head_variant).cuda()
-    if a.init:load_dino_weights(model,torch.load(a.init,map_location='cpu',weights_only=False),allow_head_upgrade=True)
+    if a.init:load_dino_weights(model,torch.load(a.init,map_location='cpu',weights_only=True),allow_head_upgrade=True)
     model.mixstyle_enabled=a.mixstyle
     model.backbone.gradient_checkpointing_enable(gradient_checkpointing_kwargs={'use_reentrant':False})
     ema=copy.deepcopy(model).eval().requires_grad_(False)
@@ -99,6 +120,7 @@ def train(a):
                 else:raw=model(x)
                 logits=F.interpolate(raw,size=y.shape[-2:],mode='bilinear',align_corners=False)
                 loss=segmentation_loss(logits,y,.5,weights)+.3*lovasz_softmax(logits,y)
+                if a.focus_bare:loss=loss+bare_focus_loss(logits,y)
                 if a.head_variant=='context_boundary':loss=loss+a.boundary_weight*boundary_loss(edges,y)
             if not torch.isfinite(loss):raise RuntimeError('Non-finite loss')
             start_group=((batch-1)//a.accum)*a.accum;divisor=min(a.accum,len(loader)-start_group)
@@ -145,5 +167,5 @@ if __name__=='__main__':
     p.add_argument('--boundary-weight',type=float,default=.1)
     p.add_argument('--pseudo-manifest');p.add_argument('--pseudo-batch',type=int,default=2)
     p.add_argument('--pseudo-weight',type=float,default=.25)
+    p.add_argument('--focus-bare',action='store_true',help='Real-label bare/background focus and guarded pseudo sampling')
     p.add_argument('--smoke',action='store_true');train(p.parse_args())
-

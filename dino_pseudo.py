@@ -19,10 +19,13 @@ def digest(path):
 def pixel_digest(path):
     with Image.open(path) as im:return hashlib.sha256(im.convert('RGB').tobytes()).hexdigest()
 
-def filter_labels(mean_probs,view_labels,confidence=.95,agreement=.75):
+def filter_labels(mean_probs,view_labels,confidence=.95,agreement=.75,
+                  bare_confidence=.98,bare_agreement=.875):
     score,label=mean_probs.max(1)
     votes=(view_labels==label.unsqueeze(0)).float().mean(0)
-    keep=(score>=confidence)&(votes>=agreement)&(label!=0)
+    bare=label==5
+    keep=(score>=torch.where(bare,bare_confidence,confidence)) & \
+         (votes>=torch.where(bare,bare_agreement,agreement)) & (label!=0)
     return torch.where(keep,label,torch.zeros_like(label)),keep
 
 def load_pseudo_pairs(manifest_path,validation):
@@ -45,6 +48,8 @@ def load_pseudo_pairs(manifest_path,validation):
 @torch.inference_mode()
 def run(a):
     if not 0<a.confidence<=1 or not 0<a.agreement<=1:raise ValueError('Invalid thresholds')
+    if not 0<a.bare_confidence<=1 or not 0<a.bare_agreement<=1:
+        raise ValueError('Invalid bare-ground thresholds')
     out=Path(a.out).resolve()
     if out.exists():raise ValueError('Use a fresh pseudo-label directory')
     paths=images(a.images)
@@ -59,7 +64,7 @@ def run(a):
         hashes[p.name]=value;seen.add(value)
     out.mkdir(parents=True)
     torch.set_num_threads(4)
-    state=torch.load(a.checkpoint,map_location='cpu',weights_only=False)
+    state=torch.load(a.checkpoint,map_location='cpu',weights_only=True)
     model=DinoSegmenter(a.source,config_only=True,head_variant=state.get('config',{}).get('head_variant','pyramid')).cuda().eval()
     model.load_state_dict(state['model'],strict=True)
     loader=DataLoader(Inputs([(p,None) for p in paths],a.sizes,.35,1.25),batch_size=1,num_workers=a.workers,pin_memory=True)
@@ -75,17 +80,20 @@ def run(a):
                 total=probs if total is None else total+probs
                 votes.append(probs.argmax(1).to(torch.uint8))
         mean=total/len(votes)
-        label,keep=filter_labels(mean,torch.stack(votes),a.confidence,a.agreement)
+        label,keep=filter_labels(mean,torch.stack(votes),a.confidence,a.agreement,
+                                a.bare_confidence,a.bare_agreement)
         ids=label[0].cpu().numpy().astype(np.uint8)
         raw=mean.argmax(1)[0].cpu().numpy()
         predicted+=np.bincount(raw.reshape(-1),minlength=9)
         retained+=np.bincount(ids[ids!=0],minlength=9)
         dest=out/(paths[i-1].stem+'.png');Image.fromarray(ids).save(dest)
         rows.append({'image':str(paths[i-1].resolve()),'mask':str(dest),'pixel_sha256':hashes[names[0]],
-                     'mask_sha256':digest(dest),'coverage':float(keep.float().mean())})
+                     'mask_sha256':digest(dest),'coverage':float(keep.float().mean()),
+                     'retained_bare_pixels':int((ids==5).sum())})
         if i%100==0 or i==len(paths):print(f'pseudo={i}/{len(paths)}',flush=True)
     manifest={'complete':True,'teacher':str(Path(a.checkpoint).resolve()),'teacher_sha256':digest(a.checkpoint),
               'confidence':a.confidence,'agreement':a.agreement,'min_coverage':a.min_coverage,
+              'bare_confidence':a.bare_confidence,'bare_agreement':a.bare_agreement,
               'sizes':a.sizes,'hflip':True,'brightness_floor':.35,'max_brightening':1.25,
               'predicted_class_pixels':predicted.tolist(),'retained_class_pixels':retained.tolist(),'images':rows}
     (out/'manifest.json').write_text(json.dumps(manifest,indent=2),encoding='utf-8')
@@ -98,6 +106,7 @@ if __name__=='__main__':
     for key in ('source','checkpoint','images','profiles','out'):p.add_argument('--'+key,required=True)
     p.add_argument('--sizes',type=int,nargs='+',default=[512,640,768,896])
     p.add_argument('--confidence',type=float,default=.95);p.add_argument('--agreement',type=float,default=.75)
+    p.add_argument('--bare-confidence',type=float,default=.98)
+    p.add_argument('--bare-agreement',type=float,default=.875)
     p.add_argument('--min-coverage',type=float,default=.02);p.add_argument('--workers',type=int,default=4)
     run(p.parse_args())
-
