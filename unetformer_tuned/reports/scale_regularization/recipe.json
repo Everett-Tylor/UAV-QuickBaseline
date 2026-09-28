@@ -1,0 +1,12 @@
+{
+  "name": "scale_regularization",
+  "epochs": 6,
+  "lr": 5e-06,
+  "balanced": true,
+  "strength": 0.15,
+  "sizes": [
+    512,
+    448,
+    576
+  ]
+}

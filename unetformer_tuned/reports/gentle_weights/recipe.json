@@ -1,0 +1,10 @@
+{
+  "name": "gentle_weights",
+  "epochs": 8,
+  "lr": 8e-06,
+  "balanced": true,
+  "strength": 0.12,
+  "sizes": [
+    512
+  ]
+}
