@@ -68,3 +68,4 @@ The prior four-element reflection-padding compatibility fix is retained.
 `test_round3.py` checks real GPU training, ignored-pixel gradients, the all-ignore
 case and all inference configurations in the original experiment workspace.
 FP16/cuDNN benchmarking may change a small number of boundary pixels between runs.
+

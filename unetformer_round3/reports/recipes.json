@@ -1,0 +1,44 @@
+[
+  {
+    "name": "continuation",
+    "epochs": 6,
+    "lr": 3e-06,
+    "balanced": true,
+    "strength": 0.1,
+    "sizes": [
+      512,
+      448,
+      576
+    ],
+    "sampling": false,
+    "hard_pixels": false
+  },
+  {
+    "name": "rare_images",
+    "epochs": 8,
+    "lr": 3e-06,
+    "balanced": true,
+    "strength": 0.1,
+    "sizes": [
+      512,
+      448,
+      576
+    ],
+    "sampling": true,
+    "hard_pixels": false
+  },
+  {
+    "name": "hard_pixels",
+    "epochs": 8,
+    "lr": 3e-06,
+    "balanced": true,
+    "strength": 0.1,
+    "sizes": [
+      512,
+      448,
+      576
+    ],
+    "sampling": false,
+    "hard_pixels": true
+  }
+]

@@ -1,0 +1,11 @@
+{
+  "training_only": true,
+  "count": 6296,
+  "weight_counts": {
+    "1.0": 4188,
+    "1.5": 1327,
+    "2.5": 781
+  },
+  "rule": "1 + 1.5*(barren_fraction>0.01) + 0.5*(vehicle_fraction>0.005)",
+  "split_sha256": "dc008e5f23c7bc6c438816f4b319efa75b2f1cb450cf2016c8ca38418a9e28fc"
+}

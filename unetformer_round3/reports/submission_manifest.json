@@ -1,0 +1,29 @@
+{
+  "count": 1300,
+  "file": "submission_unetformer_round3_test2.zip",
+  "sha256": "c6679952cc9f575d87d23cb5328e9e8db4fdc056275a740a7c33503262259fee",
+  "inference": {
+    "sizes": [
+      512
+    ],
+    "flips": [
+      [
+        false,
+        false
+      ],
+      [
+        true,
+        false
+      ],
+      [
+        false,
+        true
+      ],
+      [
+        true,
+        true
+      ]
+    ],
+    "transpose": true
+  }
+}

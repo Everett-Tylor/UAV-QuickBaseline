@@ -228,7 +228,7 @@ def main():
         model.load_state_dict(mixed);result=evaluate_hv(model,val)
         averages.append({'prior_weight':old_fraction,**result})
         if result['mIoU']>best['mIoU']:
-            state={**state,'model':mixed,'averaging_prior_fraction':old_fraction};best={**best,**result,'averaging_prior_fraction':old_fraction}
+            state={**state,'model':mixed,'metrics':result,'averaging_prior_fraction':old_fraction};best={**best,**result,'averaging_prior_fraction':old_fraction}
     save_json(out/'weight_averaging.json',averages);del model,val
     torch.save(state,out/'best.pth')
     model=make_model().cuda();model.load_state_dict(state['model']);model.eval()
@@ -246,3 +246,4 @@ def main():
              'delta_percentage_points':summary['delta_percentage_points'],'official_score':None})
 
 if __name__=='__main__':main()
+

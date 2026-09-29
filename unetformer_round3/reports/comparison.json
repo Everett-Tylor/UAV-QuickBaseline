@@ -1,0 +1,17 @@
+{
+  "baseline_mIoU": 0.7735253205397331,
+  "selected_mIoU": 0.7787140489690212,
+  "delta_percentage_points": 0.5188728429288081,
+  "per_class_delta_percentage_points": {
+    "Background": 0.6336198515451641,
+    "Building": 0.02241961068178977,
+    "Road": 0.7729509113106547,
+    "Water": 0.24646899280745815,
+    "Barren": 1.380207763476149,
+    "Vegetation": 0.038714589113630904,
+    "Agricultural": 0.6190975783541774,
+    "Vehicle": 0.4375034461415295
+  },
+  "all_classes_improved": true,
+  "official_score": null
+}
