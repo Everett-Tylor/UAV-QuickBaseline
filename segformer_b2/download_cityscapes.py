@@ -1,0 +1,32 @@
+"""Download the pinned NVIDIA Cityscapes-pretrained SegFormer-B2."""
+import argparse
+import hashlib
+import json
+from pathlib import Path
+
+from huggingface_hub import hf_hub_download
+
+MODEL = 'nvidia/segformer-b2-finetuned-cityscapes-1024-1024'
+REVISION = 'd633b2072669ca68d8f8e309de9b52bfdbf6bf72'
+FILES = ('config.json', 'preprocessor_config.json', 'pytorch_model.bin')
+
+
+def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--out', required=True)
+    out = Path(parser.parse_args().out)
+    out.mkdir(parents=True, exist_ok=True)
+    hashes = {}
+    for name in FILES:
+        path = Path(hf_hub_download(repo_id=MODEL, revision=REVISION,
+                                    filename=name, local_dir=out))
+        with path.open('rb') as stream:
+            hashes[name] = hashlib.file_digest(stream, 'sha256').hexdigest()
+        print(f'{name}: {path.stat().st_size} bytes {hashes[name]}', flush=True)
+    (out / 'provenance.json').write_text(json.dumps({
+        'model': MODEL, 'revision': REVISION, 'sha256': hashes}, indent=2),
+        encoding='utf-8')
+
+
+if __name__ == '__main__':
+    main()
