@@ -28,3 +28,5 @@ python dino_vitb_bare_pipeline.py --source D:/models/dinov3-vitb-hf --images D:/
 ```
 
 程序自动生成图像审计，也可用 `--profiles` 指向已有 `image_profiles.json`。输出目录必须为空；`status.json`、各阶段日志、`teacher_validation.json`、`student_validation.json` 和 `selection.json` 用于审阅。成功后候选预测包是 `submission_dino_vitb_bare.zip`。
+
+已有训练好的九类 DINOv3 ViT-B 教师时，可加 `--teacher D:/models/teacher-best.pth` 跳过监督训练，继续伪标签和学生训练。此时 `--source` 只需模型配置，无需再次提供预训练权重。
