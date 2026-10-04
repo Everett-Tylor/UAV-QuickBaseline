@@ -129,7 +129,28 @@ def main(args):
             '--out', report, '--workers', args.workers], 'student_validation.log')
         old = json.loads(teacher_report.read_text(encoding='utf-8'))
         new = json.loads(report.read_text(encoding='utf-8'))
+        chosen = student
+        alternative = None
+        history = [json.loads(line) for line in (out / 'student' / 'history.jsonl').read_text(encoding='utf-8').splitlines()]
+        overall_epoch = max(history, key=lambda row: row['mIoU_present_nonignored'])['epoch']
+        bare_epoch = max(history, key=lambda row: row['per_class_IoU']['5'])['epoch']
+        if bare_epoch != overall_epoch:
+            bare_checkpoint = out / 'student' / 'best_bare.pth'
+            bare_report = out / 'student_bare_validation.json'
+            record('bare_checkpoint_validation', epoch=bare_epoch)
+            run('dino_predict.py', views + ['--checkpoint', bare_checkpoint,
+                '--images', paths['images'], '--masks', paths['masks'], '--split', paths['split'],
+                '--profiles', paths['profiles'], '--out', bare_report,
+                '--workers', args.workers], 'student_bare_validation.log')
+            alternative = json.loads(bare_report.read_text(encoding='utf-8'))
+            normal_all, bare_all = new['groups']['all'], alternative['groups']['all']
+            if (bare_all['mIoU_present_nonignored'] >= normal_all['mIoU_present_nonignored'] - .003
+                    and bare_all['per_class_IoU']['5'] > normal_all['per_class_IoU']['5']):
+                chosen, new = bare_checkpoint, alternative
         selection = {'teacher': old['groups'], 'student': new['groups'],
+                     'selected_checkpoint': str(chosen),
+                     'overall_best_epoch': overall_epoch, 'bare_best_epoch': bare_epoch,
+                     'bare_alternative': alternative['groups'] if alternative else None,
                      'usable_pseudo_images': len(usable), 'retained_bare_pixels': bare_pixels,
                      'improved_over_teacher': improved(new, old),
                      'exceeds_historical_78_4116_miou':
@@ -139,7 +160,7 @@ def main(args):
 
         record('predicting_test2', improved_over_teacher=selection['improved_over_teacher'])
         prediction = out / 'submission_dino_vitb_bare'
-        run('dino_predict.py', views + ['--checkpoint', student,
+        run('dino_predict.py', views + ['--checkpoint', chosen,
             '--images', paths['test_images'], '--out', prediction,
             '--workers', args.workers], 'prediction.log')
         archive = prediction.with_suffix('.zip')
