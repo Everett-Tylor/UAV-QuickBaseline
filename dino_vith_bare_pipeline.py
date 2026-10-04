@@ -37,11 +37,14 @@ def main(args):
 
     try:
         paths = {name: Path(getattr(args, name)).resolve() for name in
-                 ('source', 'images', 'masks', 'test_images', 'split', 'class_balance', 'profiles')}
+                 ('source', 'images', 'masks', 'test_images', 'split', 'class_balance')}
         missing = [f'{name}: {path}' for name, path in paths.items() if not path.exists()]
         if missing:
             record('awaiting_required_files', missing=missing)
             return
+        paths['profiles'] = Path(args.profiles).resolve() if args.profiles else out / 'audit' / 'image_profiles.json'
+        if args.profiles and not paths['profiles'].exists():
+            raise FileNotFoundError(f'Supplied image audit missing: {paths["profiles"]}')
         source = paths['source']
         config = json.loads((source / 'config.json').read_text(encoding='utf-8'))
         expected = {'model_type': 'dinov3_vit', 'hidden_size': 1280,
@@ -57,6 +60,13 @@ def main(args):
         from quickseg import images
         if len(images(paths['test_images'])) != 1300:
             raise ValueError('Expected 1300 test2 images')
+        if not paths['profiles'].exists():
+            record('auditing_images')
+            run('round3_audit.py', ['--images', paths['images'], '--test-images', paths['test_images'],
+                '--split', paths['split'], '--out', paths['profiles'].parent], 'audit.log')
+            audit = json.loads((paths['profiles'].parent / 'data_audit.json').read_text(encoding='utf-8'))
+            if audit['cross_group_exact_duplicates']:
+                raise ValueError('Exact duplicate pixels found across train/validation/test2')
         if len(json.loads(paths['profiles'].read_text(encoding='utf-8'))) != 8296:
             raise ValueError('Expected audited 6996 labeled and 1300 test2 images')
 
@@ -140,8 +150,9 @@ def main(args):
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description=__doc__)
     for key in ('source', 'images', 'masks', 'test-images', 'split',
-                'class-balance', 'profiles', 'out'):
+                'class-balance', 'out'):
         parser.add_argument('--' + key, required=True)
+    parser.add_argument('--profiles', help='Optional image audit from round3_audit.py; generated when absent')
     parser.add_argument('--size', type=int, default=448)
     parser.add_argument('--teacher-epochs', type=int, default=3)
     parser.add_argument('--student-epochs', type=int, default=3)
