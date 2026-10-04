@@ -75,7 +75,8 @@ def main(args):
                   '--source', source, '--size', args.size, '--batch', 1, '--accum', 8,
                   '--workers', args.workers, '--freeze-epochs', args.teacher_epochs,
                   '--epochs', args.teacher_epochs, '--head-lr', 1e-4,
-                  '--augmentation', 'robust', '--focus-bare', '--no-ema']
+                  '--augmentation', 'robust', '--focus-bare', '--no-ema',
+                  '--model-dtype', 'bfloat16']
         record('supervised_smoke')
         run('dino_train.py', common + ['--out', out / 'teacher_smoke', '--smoke'],
             'teacher_smoke.log')
