@@ -17,7 +17,8 @@ machine used an RTX 5060 Laptop GPU with 8 GB of VRAM. Run from this directory:
 
 ```powershell
 python download_pretrained.py --out pretrained/mit-b2
-python train_b2.py --images DATA/train/images --masks DATA/train/masks --split split.json --source pretrained/mit-b2 --cache CACHE512 --audit data_audit.json --out run --epochs 10 --batch 4 --accum 2 --workers 4
+python prepare_cache.py --images DATA/train/images --masks DATA/train/masks --split split.json --cache CACHE512 --out prep
+python train_b2.py --images DATA/train/images --masks DATA/train/masks --split split.json --source pretrained/mit-b2 --cache CACHE512 --audit prep/data_audit.json --out run --epochs 10 --batch 4 --accum 2 --workers 4
 python select_predict_b2.py --run run --images DATA/train/images --masks DATA/train/masks --split split.json --test-images TEST2/images
 python ../unetformer_round3/verify_export.py --zip run/submission_segformer_b2_test2.zip --report run/verification.json
 ```
@@ -50,6 +51,8 @@ python ../unetformer_round3/verify_export.py --zip ensemble_run/submission_b2_un
 This ensemble scored 78.5868% mIoU on the reused 700-image validation split,
 up 0.6542 percentage points over the previous best. No official test score
 has been measured. Repeated selection on this holdout may overstate the gain.
+Exact per-class scores, training histories, download hashes and ZIP checks are
+stored in `reports/`; `RESULTS.md` summarizes the comparison.
 
 `CACHE512/images` and `CACHE512/masks` are 512-pixel PNG caches of the 6,996
 labeled images. The validation script reads original masks, and the ZIP stores
