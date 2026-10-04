@@ -65,7 +65,7 @@ def run(a):
     out.mkdir(parents=True)
     torch.set_num_threads(4)
     state=torch.load(a.checkpoint,map_location='cpu',weights_only=True)
-    model=DinoSegmenter(a.source,config_only=True,head_variant=state.get('config',{}).get('head_variant','pyramid')).cuda().eval()
+    model=DinoSegmenter(a.source,config_only=True,head_variant=state.get('config',{}).get('head_variant','pyramid')).to(device='cuda',dtype=torch.bfloat16).eval()
     model.load_state_dict(state['model'],strict=True)
     loader=DataLoader(Inputs([(p,None) for p in paths],a.sizes,.35,1.25),batch_size=1,num_workers=a.workers,pin_memory=True)
     rows=[];retained=np.zeros(9,dtype=np.int64);predicted=np.zeros(9,dtype=np.int64)
