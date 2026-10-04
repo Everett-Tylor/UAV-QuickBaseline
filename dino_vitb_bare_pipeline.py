@@ -52,7 +52,7 @@ def main(args):
                     'use_gated_mlp': False, 'patch_size': 16}
         if any(config.get(key) != value for key, value in expected.items()):
             raise ValueError('Source is not the DINOv3 ViT-B/16 architecture')
-        if not any((source / name).exists() for name in
+        if not args.teacher and not any((source / name).exists() for name in
                    ('model.safetensors', 'model.safetensors.index.json', 'pytorch_model.bin',
                     'pytorch_model.bin.index.json')):
             record('awaiting_pretrained_weights', source=str(source))
@@ -77,12 +77,18 @@ def main(args):
         teacher_args = common + ['--batch', 16, '--accum', 1,
                        '--freeze-epochs', 1, '--epochs', args.teacher_epochs,
                        '--lr', 1e-5, '--head-lr', 1e-4]
-        record('supervised_smoke')
-        run('dino_train.py', teacher_args + ['--out', out / 'teacher_smoke', '--smoke'],
-            'teacher_smoke.log')
-        record('supervised_training')
-        run('dino_train.py', teacher_args + ['--out', out / 'teacher'], 'teacher_train.log')
-        teacher = out / 'teacher' / 'best.pth'
+        if args.teacher:
+            teacher = Path(args.teacher).resolve()
+            if not teacher.is_file():
+                raise FileNotFoundError(f'Teacher checkpoint missing: {teacher}')
+            record('using_supplied_teacher', teacher=str(teacher), sha256=digest(teacher))
+        else:
+            record('supervised_smoke')
+            run('dino_train.py', teacher_args + ['--out', out / 'teacher_smoke', '--smoke'],
+                'teacher_smoke.log')
+            record('supervised_training')
+            run('dino_train.py', teacher_args + ['--out', out / 'teacher'], 'teacher_train.log')
+            teacher = out / 'teacher' / 'best.pth'
         views = ['--source', source, '--sizes', 512, 640, 768, 896,
                  '--hflip', '--brightness-floor', .35, '--max-brightening', 1.25]
         record('teacher_validation')
@@ -153,6 +159,7 @@ if __name__ == '__main__':
                 'class-balance', 'out'):
         parser.add_argument('--' + key, required=True)
     parser.add_argument('--profiles', help='Optional image audit from round3_audit.py; generated when absent')
+    parser.add_argument('--teacher', help='Existing nine-class DINOv3 ViT-B teacher checkpoint; skips supervised bootstrap')
     parser.add_argument('--size', type=int, default=512)
     parser.add_argument('--teacher-epochs', type=int, default=8)
     parser.add_argument('--student-epochs', type=int, default=3)
