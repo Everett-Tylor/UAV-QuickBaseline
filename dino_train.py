@@ -94,7 +94,8 @@ def train(a):
         (out/'pseudo_summary.json').write_text(json.dumps({'images':len(pseudo_pairs),'teacher_sha256':manifest['teacher_sha256'],
             'confidence':manifest['confidence'],'agreement':manifest['agreement'],'pseudo_weight':a.pseudo_weight},indent=2))
     val=DataLoader(ValidationDataset(validation,a.size),batch_size=2,num_workers=a.workers,pin_memory=True,persistent_workers=a.workers>0)
-    model=DinoSegmenter(a.source,config_only=bool(a.init),head_variant=a.head_variant).to(device='cuda',dtype=torch.bfloat16)
+    model_dtype={'float32':torch.float32,'bfloat16':torch.bfloat16}[a.model_dtype]
+    model=DinoSegmenter(a.source,config_only=bool(a.init),head_variant=a.head_variant).to(device='cuda',dtype=model_dtype)
     if a.init:load_dino_weights(model,torch.load(a.init,map_location='cpu',weights_only=True),allow_head_upgrade=True)
     model.mixstyle_enabled=a.mixstyle
     model.backbone.gradient_checkpointing_enable(gradient_checkpointing_kwargs={'use_reentrant':False})
@@ -169,5 +170,6 @@ if __name__=='__main__':
     p.add_argument('--pseudo-manifest');p.add_argument('--pseudo-batch',type=int,default=2)
     p.add_argument('--pseudo-weight',type=float,default=.25)
     p.add_argument('--focus-bare',action='store_true',help='Real-label bare/background focus and guarded pseudo sampling')
+    p.add_argument('--model-dtype',choices=['float32','bfloat16'],default='float32')
     p.add_argument('--no-ema',action='store_true',help='Save GPU memory for ViT-H+ by evaluating the current model')
     p.add_argument('--smoke',action='store_true');train(p.parse_args())
