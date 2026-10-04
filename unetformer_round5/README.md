@@ -41,4 +41,4 @@ python ../unetformer_round3/verify_export.py --zip blend_submission/submission_u
 `resume_round5.py --out run` resumes only when `run` has a saved epoch-boundary
 `last_training.pth`. The prediction ZIP contains 1,300 original-size,
 single-channel PNGs named `test2_1.png` through `test2_1300.png`, with class
-values 0�C8. The round-3 `UNetFormer.py` retains its upstream GPL-3.0 license.
+values 0-8. The round-3 `UNetFormer.py` retains its upstream GPL-3.0 license.
