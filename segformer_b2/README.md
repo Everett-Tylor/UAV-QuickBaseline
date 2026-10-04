@@ -22,6 +22,11 @@ python select_predict_b2.py --run run --images DATA/train/images --masks DATA/tr
 python ../unetformer_round3/verify_export.py --zip run/submission_segformer_b2_test2.zip --report run/verification.json
 ```
 
+The best pure B2 checkpoint came from epoch 10. Its original-size validation
+mIoU was 76.1845% with one 512-pixel view and 76.8727% with eight geometric
+views. The independently verified pure-B2 ZIP is
+`run/submission_segformer_b2_test2.zip`.
+
 An independent initialization trial uses the NVIDIA Cityscapes-pretrained
 SegFormer-B2 (segmentation encoder and decoder features; final classifier
 reinitialized for nine classes):
@@ -30,6 +35,21 @@ reinitialized for nine classes):
 python download_cityscapes.py --out pretrained/b2-cityscapes
 python train_b2.py --images DATA/train/images --masks DATA/train/masks --split split.json --source pretrained/b2-cityscapes --cache CACHE512 --audit data_audit.json --out cityscapes_run --epochs 8 --batch 4 --accum 2 --encoder-lr 1e-5 --decoder-lr 1e-4 --workers 4
 ```
+
+This trial was stopped after epoch 3 because it reached 66.3238% mIoU,
+compared with 72.7634% for the ImageNet initialization at the same epoch.
+
+The strongest validated result combines 35% B2 and 65% of the selected
+UNetFormer checkpoint as an average of per-class probabilities:
+
+```powershell
+python ensemble_with_unetformer.py --b2-run run --unet-checkpoint UNETFORMER/best_blend.pth --images DATA/train/images --masks DATA/train/masks --split split.json --test-images TEST2/images --out ensemble_run --baseline 0.7793262914611663
+python ../unetformer_round3/verify_export.py --zip ensemble_run/submission_b2_unetformer_ensemble_test2.zip --report ensemble_run/verification.json
+```
+
+This ensemble scored 78.5868% mIoU on the reused 700-image validation split,
+up 0.6542 percentage points over the previous best. No official test score
+has been measured. Repeated selection on this holdout may overstate the gain.
 
 `CACHE512/images` and `CACHE512/masks` are 512-pixel PNG caches of the 6,996
 labeled images. The validation script reads original masks, and the ZIP stores
