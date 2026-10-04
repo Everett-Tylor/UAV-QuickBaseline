@@ -34,7 +34,7 @@ class Inputs(Dataset):
 def run(a):
     torch.set_num_threads(4)
     state=torch.load(a.checkpoint,map_location='cpu',weights_only=True)
-    model=DinoSegmenter(a.source,config_only=True,head_variant=state.get('config',{}).get('head_variant','pyramid')).cuda().eval();model.load_state_dict(state['model'])
+    model=DinoSegmenter(a.source,config_only=True,head_variant=state.get('config',{}).get('head_variant','pyramid')).to(device='cuda',dtype=torch.bfloat16).eval();model.load_state_dict(state['model'])
     models=[model]
     if a.ensemble_checkpoint:
         other_class=DinoSegmenter if a.ensemble_architecture=='dino' else Segmenter
