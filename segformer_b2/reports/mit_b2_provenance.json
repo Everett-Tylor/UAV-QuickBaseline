@@ -1,0 +1,9 @@
+{
+  "model": "nvidia/mit-b2",
+  "revision": "3bb39e8739149c3777d0325349b2a6c32c6413db",
+  "sha256": {
+    "config.json": "d9a879499e7d73e2b33af0638cee320b1070c8f0dadb620eac8907df3d18caa9",
+    "preprocessor_config.json": "d96ab2cb112985c19d5ea32f1d1f2369104fc78b1379f5ce26e33ca8646202a7",
+    "pytorch_model.bin": "4500b5665471b593e6757e15bcca5034f433fe3902fe8ec2b7230774a57f264f"
+  }
+}
