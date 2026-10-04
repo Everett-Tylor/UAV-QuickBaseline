@@ -26,8 +26,8 @@ continued result was 77.6617% at epoch 3 EMA. This trial was rejected.
 
 ## Reproduce
 
-Install `../unetformer_round3/requirements.txt`. The preceding branch
-includes the UNetFormer model code, split and validation helpers. The
+Install `../unetformer_round3/requirements.txt`. This branch includes the
+UNetFormer model code, split and validation helpers. The
 training images, original data audit, earlier checkpoints and new predictions
 remain local.
 
@@ -42,4 +42,3 @@ python ../unetformer_round3/verify_export.py --zip blend_submission/submission_u
 `last_training.pth`. The prediction ZIP contains 1,300 original-size,
 single-channel PNGs named `test2_1.png` through `test2_1300.png`, with class
 values 0�C8. The round-3 `UNetFormer.py` retains its upstream GPL-3.0 license.
-
