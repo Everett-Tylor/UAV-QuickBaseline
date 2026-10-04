@@ -24,6 +24,8 @@ def main():
     parser.add_argument('--batch', type=int, default=2)
     parser.add_argument('--accum', type=int, default=4)
     parser.add_argument('--workers', type=int, default=4)
+    parser.add_argument('--encoder-lr', type=float, default=4e-5)
+    parser.add_argument('--decoder-lr', type=float, default=4e-4)
     parser.add_argument('--resume', action='store_true')
     parser.add_argument('--smoke', action='store_true')
     args = parser.parse_args()
@@ -57,8 +59,9 @@ def main():
     model.config.label2id = {name: index for index, name in enumerate(LABELS)}
     model.config.save_pretrained(out / 'model_config')
     optimizer = torch.optim.AdamW([
-        {'params': model.segformer.parameters(), 'lr': 4e-5},
-        {'params': model.decode_head.parameters(), 'lr': 4e-4}], weight_decay=.01)
+        {'params': model.segformer.parameters(), 'lr': args.encoder_lr},
+        {'params': model.decode_head.parameters(), 'lr': args.decoder_lr}],
+        weight_decay=.01)
     scaler = torch.amp.GradScaler('cuda')
     first_epoch, step, best = 1, 0, -1.
     if args.resume:
@@ -95,7 +98,8 @@ def main():
             if index % args.accum == 0:
                 factor = min(1., (step + 1) / 100) * \
                          (.1 + .9 * max(0., 1 - step / total_steps) ** .9)
-                for group, lr in zip(optimizer.param_groups, (4e-5, 4e-4)):
+                for group, lr in zip(optimizer.param_groups,
+                                     (args.encoder_lr, args.decoder_lr)):
                     group['lr'] = lr * factor
             x, y = x.cuda(non_blocking=True), y.cuda(non_blocking=True)
             group_size = min(args.accum, len(train) -
