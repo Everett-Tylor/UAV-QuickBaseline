@@ -22,6 +22,15 @@ python select_predict_b2.py --run run --images DATA/train/images --masks DATA/tr
 python ../unetformer_round3/verify_export.py --zip run/submission_segformer_b2_test2.zip --report run/verification.json
 ```
 
+An independent initialization trial uses the NVIDIA Cityscapes-pretrained
+SegFormer-B2 (segmentation encoder and decoder features; final classifier
+reinitialized for nine classes):
+
+```powershell
+python download_cityscapes.py --out pretrained/b2-cityscapes
+python train_b2.py --images DATA/train/images --masks DATA/train/masks --split split.json --source pretrained/b2-cityscapes --cache CACHE512 --audit data_audit.json --out cityscapes_run --epochs 8 --batch 4 --accum 2 --encoder-lr 1e-5 --decoder-lr 1e-4 --workers 4
+```
+
 `CACHE512/images` and `CACHE512/masks` are 512-pixel PNG caches of the 6,996
 labeled images. The validation script reads original masks, and the ZIP stores
 1,300 original-size single-channel PNGs. The training command saves `best.pth`
@@ -30,5 +39,8 @@ to continue from the last complete epoch after an interruption.
 
 The MiT-B2 source is [nvidia/mit-b2](https://huggingface.co/nvidia/mit-b2),
 pinned to revision `3bb39e8739149c3777d0325349b2a6c32c6413db`.
+The Cityscapes source is
+[nvidia/segformer-b2-finetuned-cityscapes-1024-1024](https://huggingface.co/nvidia/segformer-b2-finetuned-cityscapes-1024-1024),
+pinned to revision `d633b2072669ca68d8f8e309de9b52bfdbf6bf72`.
 `download_pretrained.py` records file hashes. The trained weights and image
 data stay local; this branch contains source and validation records.
