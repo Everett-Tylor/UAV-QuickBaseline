@@ -20,10 +20,10 @@
 从本目录执行，替换实际路径：
 
 ```powershell
-python dino_vith_bare_pipeline.py --source D:/models/dinov3-vith16plus --images D:/data/train/images --masks D:/data/train/masks --test-images D:/data/test2/images --split reports/round2/split.json --class-balance reports/round2/class_balance.json --profiles audit/image_profiles.json --out D:/results/dino_vith_bare
+python dino_vith_bare_pipeline.py --source D:/models/dinov3-vith16plus --images D:/data/train/images --masks D:/data/train/masks --test-images D:/data/test2/images --split reports/round2/split.json --class-balance reports/round2/class_balance.json --out D:/results/dino_vith_bare
 ```
 
-使用本机已有的 Python 环境时，把 `python` 换成完整的 `.../b2-env/Scripts/python.exe` 路径。输出目录必须为空；`status.json` 和各阶段日志记录进度。成功后检查 `selection.json`、`student_validation.json` 与 `submission_dino_vith_bare.zip`。
+使用本机已有的 Python 环境时，把 `python` 换成完整的 `.../b2-env/Scripts/python.exe` 路径。程序自动生成图像审计文件，也可以用 `--profiles` 指向已有文件。输出目录必须为空；`status.json` 和各阶段日志记录进度。成功后检查 `selection.json`、`student_validation.json` 与 `submission_dino_vith_bare.zip`。
 
 测试：
 
