@@ -1,4 +1,4 @@
-"""DINOv3 ViT-B/16 with a multi-layer pyramid decoder for nine-class segmentation."""
+"""DINOv3 ViT-B/16 or ViT-H+/16 with a pyramid decoder for nine classes."""
 import torch
 from torch import nn
 from torch.nn import functional as F
@@ -6,6 +6,12 @@ from transformers import DINOv3ViTModel,DINOv3ViTConfig
 
 def conv(cin,cout):
     return nn.Sequential(nn.Conv2d(cin,cout,3,padding=1,bias=False),nn.GroupNorm(8,cout),nn.GELU())
+
+def feature_block_indices(config):
+    """Choose four evenly spaced transformer blocks, including the final block."""
+    depth=int(config.num_hidden_layers)
+    if depth<4:raise ValueError(f'Unsupported DINOv3 depth: {depth}')
+    return [depth//4,depth//2,3*depth//4,depth]
 
 class MixStyle(nn.Module):
     def __init__(self,p=.5,alpha=.1):
@@ -78,15 +84,17 @@ class DinoSegmenter(nn.Module):
         normalized=(x-self.mean)/self.std
         with torch.set_grad_enabled(torch.is_grad_enabled() and not self.frozen_backbone):
             states=self.backbone(normalized,output_hidden_states=True).hidden_states
-        if len(states)!=13:raise RuntimeError(f'Expected embedding + 12 blocks, got {len(states)}')
+        depth=self.backbone.config.num_hidden_layers
+        if len(states)!=depth+1:raise RuntimeError(f'Expected embedding + {depth} blocks, got {len(states)}')
         gh,gw=h//16,w//16;prefix=1+self.backbone.config.num_register_tokens
         features=[]
-        for state,index,proj,scale in zip([states[i] for i in [3,6,9,12]],[3,6,9,12],self.projections,[4,2,1,.5]):
+        indices=feature_block_indices(self.backbone.config)
+        for state,index,proj,scale in zip([states[i] for i in indices],indices,self.projections,[4,2,1,.5]):
             state=self.backbone.norm(state)
             tokens=state[:,prefix:]
             if tokens.shape[1]!=gh*gw:raise RuntimeError('Patch/token shape mismatch')
             feature=proj(tokens.transpose(1,2).reshape(x.shape[0],-1,gh,gw))
-            if self.mixstyle_enabled and index in (3,6):feature=self.mixstyle(feature)
+            if self.mixstyle_enabled and index in indices[:2]:feature=self.mixstyle(feature)
             features.append(F.interpolate(feature,size=(int(gh*scale),int(gw*scale)),mode='bilinear',align_corners=False))
         if self.head_variant=='context_boundary':features[2]=self.context_adapter(features[2])
         fused=None
@@ -113,4 +121,3 @@ def load_dino_weights(model,state,allow_head_upgrade=False):
     else:
         if old_variant!=model.head_variant:raise ValueError('Checkpoint architecture mismatch')
         model.load_state_dict(state['model'],strict=True)
-
