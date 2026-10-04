@@ -15,7 +15,7 @@ The eight-epoch continuation from round 4 did not exceed its 77.7360631%
 four-flip baseline; its best four-flip score was 77.6617242%.
 
 The selected ZIP is `blend_submission/submission_unetformer_round5_test2.zip`:
-1,300 PNGs, each 1024 �� 1024, mode L, class values 0�C8. Independent ZIP
+1,300 PNGs, each 1024 x 1024, mode L, class values 0-8. Independent ZIP
 verification passed all member CRCs. Size: **11,169,157 bytes**. SHA-256:
 `993690c5d0bbc64d73d04f3a668c225565a7988f0710c89870372ef1b5931e5d`.
 
