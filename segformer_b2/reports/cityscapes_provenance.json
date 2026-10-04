@@ -1,0 +1,9 @@
+{
+  "model": "nvidia/segformer-b2-finetuned-cityscapes-1024-1024",
+  "revision": "d633b2072669ca68d8f8e309de9b52bfdbf6bf72",
+  "sha256": {
+    "config.json": "3bafe3a84c87270732bb383f6ef33801d1cd441907da8cedc2c8a4986276945d",
+    "preprocessor_config.json": "d96ab2cb112985c19d5ea32f1d1f2369104fc78b1379f5ce26e33ca8646202a7",
+    "pytorch_model.bin": "584d72ace8c17c5683c198e1a4c3eda2e1026bafc02711ac5e5a4dc097bd05fe"
+  }
+}
