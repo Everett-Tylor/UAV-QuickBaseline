@@ -94,11 +94,11 @@ def train(a):
         (out/'pseudo_summary.json').write_text(json.dumps({'images':len(pseudo_pairs),'teacher_sha256':manifest['teacher_sha256'],
             'confidence':manifest['confidence'],'agreement':manifest['agreement'],'pseudo_weight':a.pseudo_weight},indent=2))
     val=DataLoader(ValidationDataset(validation,a.size),batch_size=2,num_workers=a.workers,pin_memory=True,persistent_workers=a.workers>0)
-    model=DinoSegmenter(a.source,config_only=bool(a.init),head_variant=a.head_variant).cuda()
+    model=DinoSegmenter(a.source,config_only=bool(a.init),head_variant=a.head_variant).to(device='cuda',dtype=torch.bfloat16)
     if a.init:load_dino_weights(model,torch.load(a.init,map_location='cpu',weights_only=True),allow_head_upgrade=True)
     model.mixstyle_enabled=a.mixstyle
     model.backbone.gradient_checkpointing_enable(gradient_checkpointing_kwargs={'use_reentrant':False})
-    ema=copy.deepcopy(model).eval().requires_grad_(False)
+    ema=None if a.no_ema else copy.deepcopy(model).eval().requires_grad_(False)
     backbone=list(model.backbone.parameters());ids={id(p) for p in backbone}
     added=[p for name,p in model.named_parameters() if name.startswith(('context_adapter.','detail_adapter.','boundary_head.'))]
     added_ids={id(p) for p in added}
@@ -139,17 +139,18 @@ def train(a):
             if batch%a.accum==0 or batch==len(loader):
                 norm=torch.nn.utils.clip_grad_norm_(model.parameters(),1.)
                 if not torch.isfinite(norm):raise RuntimeError('Non-finite gradients')
-                optimizer.step();optimizer.zero_grad(set_to_none=True);updates+=1;update_ema(ema,model,updates)
+                optimizer.step();optimizer.zero_grad(set_to_none=True);updates+=1
+                if ema is not None:update_ema(ema,model,updates)
             loss_sum+=loss.item();step+=1
             if batch==1 or batch%100==0:print(f'epoch={epoch}/{a.epochs} frozen={frozen} batch={batch}/{len(loader)} loss={loss_sum/batch:.4f} elapsed={time.time()-start:.0f}s peakGB={torch.cuda.max_memory_allocated()/1e9:.2f}',flush=True)
             if a.smoke and batch==2:
-                with torch.no_grad(),torch.autocast('cuda',dtype=torch.bfloat16):assert torch.isfinite(ema(x)).all()
+                with torch.no_grad(),torch.autocast('cuda',dtype=torch.bfloat16):assert torch.isfinite((ema or model)(x)).all()
                 print('SMOKE_OK',flush=True);return
-        metrics=evaluate(ema,val)
+        metrics=evaluate(ema or model,val)
         row={'epoch':epoch,'frozen_backbone':frozen,'loss':loss_sum/len(loader),'pseudo_loss':pseudo_sum/len(loader),'elapsed_seconds':time.time()-start,**metrics}
         with (out/'history.jsonl').open('a') as f:f.write(json.dumps(row)+'\n')
         print(json.dumps(row),flush=True)
-        state={'model':ema.state_dict(),'epoch':epoch,'metrics':metrics,'config':vars(a),'split':split,'ema_updates':updates,'architecture':'dinov3_'+a.head_variant}
+        state={'model':(ema or model).state_dict(),'epoch':epoch,'metrics':metrics,'config':vars(a),'split':split,'ema_updates':updates if ema is not None else 0,'architecture':'dinov3_'+a.head_variant}
         if metrics['mIoU_present_nonignored']>best:best=metrics['mIoU_present_nonignored'];torch.save(state,out/'best.pth')
         torch.save({**state,'student':model.state_dict(),'optimizer':optimizer.state_dict()},out/'last.pth')
 
@@ -168,4 +169,5 @@ if __name__=='__main__':
     p.add_argument('--pseudo-manifest');p.add_argument('--pseudo-batch',type=int,default=2)
     p.add_argument('--pseudo-weight',type=float,default=.25)
     p.add_argument('--focus-bare',action='store_true',help='Real-label bare/background focus and guarded pseudo sampling')
+    p.add_argument('--no-ema',action='store_true',help='Save GPU memory for ViT-H+ by evaluating the current model')
     p.add_argument('--smoke',action='store_true');train(p.parse_args())
