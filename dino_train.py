@@ -107,7 +107,7 @@ def train(a):
     groups=[{'params':backbone,'lr':a.lr},{'params':decoder,'lr':a.head_lr}]
     if added:groups.append({'params':added,'lr':a.new_head_lr})
     optimizer=torch.optim.AdamW(groups,weight_decay=.01,foreach=False)
-    best=-1.;updates=0;step=0;total=a.epochs*len(loader);start=time.time()
+    best=-1.;best_bare=-1.;updates=0;step=0;total=a.epochs*len(loader);start=time.time()
     for epoch in range(1,a.epochs+1):
         frozen=epoch<=a.freeze_epochs;model.freeze_backbone(frozen);model.train();optimizer.zero_grad(set_to_none=True);loss_sum=0.;pseudo_sum=0.
         for batch,(x,y) in enumerate(loader,1):
@@ -153,6 +153,9 @@ def train(a):
         print(json.dumps(row),flush=True)
         state={'model':(ema or model).state_dict(),'epoch':epoch,'metrics':metrics,'config':vars(a),'split':split,'ema_updates':updates if ema is not None else 0,'architecture':'dinov3_'+a.head_variant}
         if metrics['mIoU_present_nonignored']>best:best=metrics['mIoU_present_nonignored'];torch.save(state,out/'best.pth')
+        if a.focus_bare and metrics['per_class_IoU']['5']>best_bare:
+            best_bare=metrics['per_class_IoU']['5']
+            torch.save(state,out/'best_bare.pth')
         torch.save({**state,'student':model.state_dict(),'optimizer':optimizer.state_dict()},out/'last.pth')
 
 if __name__=='__main__':
